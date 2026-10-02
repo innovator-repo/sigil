@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Cold-start window background only; all in-app theming lives in ui/theme/Color.kt -->
+    <color name="window_background_light">#F5F5F7</color>
+    <color name="window_background_dark">#000000</color>
+</resources>

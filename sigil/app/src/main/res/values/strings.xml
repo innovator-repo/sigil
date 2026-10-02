@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sigil</string>
+    <string name="find_or_keep">Find or keep</string>
+    <string name="tagline">Remember everything. Memorize nothing.</string>
+</resources>
