@@ -80,7 +80,7 @@ import com.sigil.core.Totp
 
 /** A centered glass sheet over a dimmed screen (`.sheet`). Tapping outside cancels. */
 @Composable
-private fun Sheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+internal fun Sheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val c = Sigil.colors
     Box(
         Modifier.fillMaxSize().background(c.scrim).tapQuiet(onDismiss).systemBarsPadding().imePadding().padding(16.dp),
@@ -95,7 +95,7 @@ private fun Sheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> 
 }
 
 @Composable
-private fun SheetTitle(text: String) {
+internal fun SheetTitle(text: String) {
     Text(text, style = SigilType.sheetTitle, color = Sigil.colors.label, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp))
 }
 

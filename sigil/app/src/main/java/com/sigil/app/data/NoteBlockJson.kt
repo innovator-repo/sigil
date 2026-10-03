@@ -1,6 +1,7 @@
 package com.sigil.app.data
 
 import com.sigil.app.data.model.BlockType
+import com.sigil.app.data.model.CustomField
 import com.sigil.app.data.model.NoteBlock
 import com.sigil.app.data.model.Segment
 import org.json.JSONArray
@@ -68,5 +69,34 @@ object NoteBlockJson {
             )
         }
         return blocks.ifEmpty { listOf(NoteBlock(id = "b0")) }
+    }
+}
+
+/** JSON for a password item's extra fields; sealed fields carry only their secret id. */
+object FieldsJson {
+    fun encode(fields: List<CustomField>): String {
+        val arr = JSONArray()
+        for (f in fields) {
+            val o = JSONObject()
+            o.put("id", f.id)
+            o.put("label", f.label)
+            if (f.secretId != null) o.put("secretId", f.secretId) else o.put("value", f.value)
+            arr.put(o)
+        }
+        return arr.toString()
+    }
+
+    fun decode(json: String): List<CustomField> {
+        if (json.isBlank()) return emptyList()
+        val arr = JSONArray(json)
+        return (0 until arr.length()).map { i ->
+            val o = arr.getJSONObject(i)
+            CustomField(
+                id = o.getString("id"),
+                label = o.optString("label"),
+                value = o.optString("value"),
+                secretId = if (o.has("secretId")) o.getString("secretId") else null,
+            )
+        }
     }
 }

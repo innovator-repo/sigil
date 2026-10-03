@@ -60,6 +60,13 @@ enum class SigilIcon(vararg val parts: String) {
     Warn("M12 4.5l8.5 15h-17z", "M12 10v4M12 16.8v.2"),
     Code(circle(12f, 12f, 8f), "M12 7.5V12l3 2"),
     Close("M6.5 6.5l11 11M17.5 6.5l-11 11"),
+    Bank("M12 3.8l8 4.4H4z", "M5.5 10.5v7M9.8 10.5v7M14.2 10.5v7M18.5 10.5v7M3.8 20.2h16.4"),
+    Chart("M4 19.5h16", "M6.5 15.5l4-4.5 3 3 5-6"),
+    IdCard(rect(3f, 5.5f, 18f, 13f, 2.5f), circle(9f, 11f, 2f), "M5.8 16c.6-1.3 1.8-2 3.2-2s2.6.7 3.2 2M14.5 10h4M14.5 13.5h3"),
+    Cap("M12 5l9.5 4.5L12 14 2.5 9.5z", "M6.5 11.5v4c1.4 1.4 3.3 2.1 5.5 2.1s4.1-.7 5.5-2.1v-4M21.5 9.5v5"),
+    Pen("M14.5 4.5l5 5-8.5 8.5H6v-5z", "M3.5 20.5h17"),
+    Badge(rect(4f, 4f, 16f, 16f, 4f), "M8.5 12.2l2.4 2.4 4.6-5"),
+    Plus2("M12 6v12M6 12h12"),
 
     /** The app mark: a page with a padlock on it - notes and secrets in one place. */
     AppMark("M7 4.5h7.5l3.5 3.5v11.5H7z", rect(9.5f, 12f, 6f, 4.5f, 1f), "M10.8 12v-1.2a1.7 1.7 0 0 1 3.4 0V12"),

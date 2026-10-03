@@ -39,6 +39,10 @@ data class LoginEntity(
     @ColumnInfo(name = "has_passkey") val hasPasskey: Boolean,
     val leaked: Boolean,
     @ColumnInfo(name = "supports_2fa") val supports2FA: Boolean,
+    @ColumnInfo(defaultValue = "LOGIN") val category: String = "LOGIN",
+    /** JSON-encoded List<CustomField> - see FieldsJson. */
+    @ColumnInfo(name = "fields_json", defaultValue = "[]") val fieldsJson: String = "[]",
+    @ColumnInfo(defaultValue = "") val notes: String = "",
 )
 
 @Entity(tableName = "cards")

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.sigil.app.data.model.CardItem
+import com.sigil.app.data.model.Category
 import com.sigil.app.data.model.Item
 import com.sigil.app.data.model.LoginItem
 import com.sigil.app.data.model.WifiItem
@@ -73,7 +74,8 @@ private fun Head(item: Item, glyph: @Composable () -> Unit) {
         Spacer(Modifier.padding(start = 14.dp))
         Column {
             Text(item.titleText(), style = SigilType.itemTitle, color = Sigil.colors.label)
-            Text(editedLine(item), style = SigilType.meta, color = Sigil.colors.label2, modifier = Modifier.padding(top = 3.dp))
+            val kind = (item as? LoginItem)?.category?.takeIf { it != Category.LOGIN }?.label
+            Text((kind?.let { "$it · " } ?: "") + editedLine(item), style = SigilType.meta, color = Sigil.colors.label2, modifier = Modifier.padding(top = 3.dp))
         }
     }
 }
@@ -161,9 +163,12 @@ fun LoginBody(item: LoginItem, state: UiState, vm: SigilViewModel) {
         }
     }
 
+    val cat = item.category
     FieldGroup {
-        PlainRow("User name", item.username, divider = false, vm = vm)
-        SecretRow(item, "pw", "Password", item.passwordSecretId, state, vm, divider = true)
+        var first = true
+        fun divider() = if (first) { first = false; false } else true
+        if (item.username.isNotBlank()) PlainRow(cat.usernameLabel, item.username, divider = divider(), vm = vm)
+        if (item.hasPassword) SecretRow(item, "pw", cat.passwordLabel, item.passwordSecretId, state, vm, divider = divider(), copyLabel = cat.passwordLabel)
         item.totpSecretId?.let { TotpRow(it, vm) }
         if (item.hasPasskey) {
             FieldRow(
@@ -176,10 +181,22 @@ fun LoginBody(item: LoginItem, state: UiState, vm: SigilViewModel) {
             )
         }
     }
+    if (item.fields.isNotEmpty()) {
+        FieldGroup {
+            item.fields.forEachIndexed { i, f ->
+                val label = f.label.ifBlank { "Field" }
+                if (f.secretId != null) {
+                    SecretRow(item, "f:${f.id}", label, f.secretId, state, vm, divider = i > 0, colorize = false)
+                } else {
+                    PlainRow(label, f.value, divider = i > 0, vm = vm)
+                }
+            }
+        }
+    }
     if (item.url.isNotBlank()) {
         FieldGroup {
             FieldRow(
-                "Website", divider = false,
+                if (cat == Category.EDUCATION) "Link" else "Website", divider = false,
                 value = {
                     Row(
                         Modifier.clip(RoundedCornerShape(6.dp)).tap {
@@ -200,11 +217,18 @@ fun LoginBody(item: LoginItem, state: UiState, vm: SigilViewModel) {
             )
         }
     }
-    FieldGroup {
-        FieldRow(
-            "Password", divider = false,
-            value = { Pill("Change Password…", { vm.openGenerator(item.id) }, SigilIcon.Refresh) },
-        )
+    if (item.notes.isNotBlank()) {
+        FieldGroup {
+            FieldRow("Notes", divider = false, value = { Text(item.notes, style = SigilType.notesField, color = c.label) })
+        }
+    }
+    if (item.hasPassword && cat != Category.LOCK) {
+        FieldGroup {
+            FieldRow(
+                cat.passwordLabel, divider = false,
+                value = { Pill("Change Password…", { vm.openGenerator(item.id) }, SigilIcon.Refresh) },
+            )
+        }
     }
 }
 

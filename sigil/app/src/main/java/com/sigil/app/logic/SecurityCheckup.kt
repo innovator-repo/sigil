@@ -25,7 +25,8 @@ data class IssueCopy(val kind: String, val why: String, val fix: String, val act
 object SecurityCheckup {
 
     suspend fun compute(logins: List<LoginItem>, repo: Repository, snoozedOrder: List<String>): CheckupResult {
-        val active = logins.filter { !it.isDeleted }
+        // Items with no main password (a license key, a lock code) have nothing to compare.
+        val active = logins.filter { !it.isDeleted && it.hasPassword }
         val valueOf = HashMap<String, String>(active.size)
         for (l in active) valueOf[l.id] = repo.revealValue(l.passwordSecretId)
         val groups = active.groupBy { valueOf[it.id] }

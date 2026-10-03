@@ -22,6 +22,12 @@ with the same UI, sample content and behavior, renamed Sigil.
 - **Passwords**: logins, cards and Wi‑Fi. Values stay masked until revealed, then hide again
   after 30 seconds. Copies are marked sensitive and cleared after 60 seconds. Logins can show
   verification codes (RFC 6238) and offer *Change Password…*.
+- **Any kind of account**: the key button asks *What are you saving?* Options are Login, Card,
+  Wi‑Fi, Bank Account (customer ID, net-banking password, account number, IFSC, net-banking PIN,
+  MPIN, app MPIN), Trading & Investing, Government Portal (UAN, ITR, MCA, DigiLocker), University,
+  Digital Signature (eMudhra challenge code and token password), Software License, Lock & PIN, and Other.
+  Every item can have extra fields, each plain or sealed, and notes. Everything can be edited later
+  with the **Edit** button, which asks for presence first.
 - **Find or keep** (search button, or Ctrl/⌘+K): one field that searches every item. If
   nothing matches, Return keeps what you typed as a new note. Sealed values are never searched.
 - **Generator**: Strong, Memorable or PIN, or **Mine** to save a password you already have (typed or pasted, hidden until you tap Show), with digits in blue and symbols in orange, plus a strength estimate.

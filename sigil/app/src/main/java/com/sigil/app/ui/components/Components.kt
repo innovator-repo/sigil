@@ -89,7 +89,7 @@ fun ItemGlyph(item: Item, size: Dp = 30.dp) {
         ) { SIcon(SigilIcon.Note, c.note, size * 0.57f) }
         is CardItem -> IconTile(SigilIcon.Card, c.tiles[5], size)
         is WifiItem -> IconTile(SigilIcon.Wifi, c.tiles[3], size)
-        is LoginItem -> Box(
+        is LoginItem -> if (item.category == com.sigil.app.data.model.Category.LOCK) IconTile(SigilIcon.Lock, c.tiles[7], size) else Box(
             Modifier.size(size).clip(radius).background(c.tileFor(item.title)),
             contentAlignment = Alignment.Center,
         ) {

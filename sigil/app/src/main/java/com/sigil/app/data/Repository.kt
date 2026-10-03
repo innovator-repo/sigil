@@ -1,6 +1,9 @@
 package com.sigil.app.data
 
 import com.sigil.app.data.model.CardItem
+import com.sigil.app.data.model.Category
+import com.sigil.app.data.model.CustomField
+import com.sigil.app.data.model.ItemDraft
 import com.sigil.app.data.model.Item
 import com.sigil.app.data.model.LoginItem
 import com.sigil.app.data.model.NoteItem
@@ -73,6 +76,47 @@ class Repository(
 
     suspend fun saveLogin(login: LoginItem) = db.loginDao().upsert(login.toEntity())
 
+    /**
+     * Saves what the editor produced, as a new item ([base] null) or over [base]. Every sealed
+     * value is sealed afresh; ciphertext the item no longer uses is left for collectGarbage().
+     */
+    suspend fun saveDraft(base: Item?, d: ItemDraft, passwordChanged: Boolean): Item {
+        val now = System.currentTimeMillis()
+        suspend fun sealOrNone(v: String) = if (v.isEmpty()) "" else sealValue(v)
+        val item: Item = when (d) {
+            is ItemDraft.Login -> {
+                val fields = d.fields.filter { it.label.isNotBlank() || it.value.isNotBlank() }.map { f ->
+                    if (f.secret) CustomField(f.id, f.label.trim(), secretId = sealValue(f.value))
+                    else CustomField(f.id, f.label.trim(), value = f.value.trim())
+                }
+                val old = base as? LoginItem
+                (old ?: LoginItem(id = newId("l"), space = d.space, updated = now, title = "", username = "", passwordSecretId = "", url = ""))
+                    .copy(
+                        space = d.space, updated = now, title = d.title.trim(), username = d.username.trim(),
+                        passwordSecretId = sealOrNone(d.password), url = d.url.trim(), category = d.category,
+                        fields = fields, notes = d.notes.trim(), leaked = (old?.leaked ?: false) && !passwordChanged,
+                    )
+            }
+            is ItemDraft.Card -> {
+                val digits = d.number.filter { it.isDigit() }
+                ((base as? CardItem) ?: CardItem(newId("c"), d.space, updated = now, title = "", holder = "", numberSecretId = "", last4 = "", expiry = "", codeSecretId = ""))
+                    .copy(
+                        space = d.space, updated = now, title = d.title.trim(), holder = d.holder.trim(),
+                        numberSecretId = sealOrNone(d.number.trim()), last4 = digits.takeLast(4),
+                        expiry = d.expiry.trim(), codeSecretId = sealOrNone(d.code.trim()),
+                    )
+            }
+            is ItemDraft.Wifi ->
+                ((base as? WifiItem) ?: WifiItem(newId("w"), d.space, updated = now, title = "", network = "", passwordSecretId = "", security = ""))
+                    .copy(
+                        space = d.space, updated = now, title = d.title.trim(), network = d.network.trim(),
+                        passwordSecretId = sealOrNone(d.password), security = d.security.trim(),
+                    )
+        }
+        save(item)
+        return item
+    }
+
     suspend fun updateLoginPassword(login: LoginItem, newPlaintext: String): LoginItem {
         // The old ciphertext is left for collectGarbage(): other items may still point at it.
         val newId = sealValue(newPlaintext)
@@ -132,7 +176,11 @@ class Repository(
         db.noteDao().all().forEach { n ->
             NoteBlockJson.decode(n.blocksJson).forEach { b -> b.segments.forEach { if (it is Segment.Seal) used.add(it.secretId) } }
         }
-        db.loginDao().all().forEach { used.add(it.passwordSecretId); it.totpSecretId?.let(used::add) }
+        db.loginDao().all().forEach { l ->
+            used.add(l.passwordSecretId)
+            l.totpSecretId?.let(used::add)
+            FieldsJson.decode(l.fieldsJson).forEach { f -> f.secretId?.let(used::add) }
+        }
         db.cardDao().all().forEach { used.add(it.numberSecretId); used.add(it.codeSecretId) }
         db.wifiDao().all().forEach { used.add(it.passwordSecretId) }
         db.secretDao().allIds().filterNot { it in used }.forEach { db.secretDao().delete(it) }
@@ -163,11 +211,14 @@ private fun LoginEntity.toDomain() = LoginItem(
     id = id, space = Space.valueOf(space), pinned = pinned, updated = updated, deletedAt = deletedAt,
     title = title, username = username, passwordSecretId = passwordSecretId, url = url,
     isRoot = isRoot, totpSecretId = totpSecretId, hasPasskey = hasPasskey, leaked = leaked, supports2FA = supports2FA,
+    category = runCatching { Category.valueOf(category) }.getOrDefault(Category.LOGIN),
+    fields = FieldsJson.decode(fieldsJson), notes = notes,
 )
 private fun LoginItem.toEntity() = LoginEntity(
     id = id, space = space.name, pinned = pinned, updated = updated, deletedAt = deletedAt,
     title = title, username = username, passwordSecretId = passwordSecretId, url = url,
     isRoot = isRoot, totpSecretId = totpSecretId, hasPasskey = hasPasskey, leaked = leaked, supports2FA = supports2FA,
+    category = category.name, fieldsJson = FieldsJson.encode(fields), notes = notes,
 )
 
 private fun CardEntity.toDomain() = CardItem(

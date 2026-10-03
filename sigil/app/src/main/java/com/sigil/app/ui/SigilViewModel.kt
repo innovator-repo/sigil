@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.sigil.app.SigilApplication
 import com.sigil.app.data.Repository
 import com.sigil.app.data.model.CardItem
+import com.sigil.app.data.model.DraftField
+import com.sigil.app.data.model.ItemDraft
 import com.sigil.app.data.model.Item
 import com.sigil.app.data.model.LoginItem
 import com.sigil.app.data.model.NoteItem
@@ -67,6 +69,18 @@ sealed interface Overlay {
     /** The password generator: a new login when [changeItemId] is null, else a new password for that login. */
     data class Generator(val changeItemId: String? = null) : Overlay
     data class TotpSetup(val itemId: String) : Overlay
+    /** "What are you saving?": the kinds of password item to start from. */
+    data object NewItem : Overlay
+    /**
+     * The item editor: an existing item ([itemId]), or a new one of [category], or a new card or
+     * Wi‑Fi network. Its secret values are decrypted for as long as it's open.
+     */
+    data class Editor(
+        val itemId: String? = null,
+        val category: com.sigil.app.data.model.Category? = null,
+        val card: Boolean = false,
+        val wifi: Boolean = false,
+    ) : Overlay
     /** "Delete forever?" for items already in Recently Deleted. */
     data class ConfirmDelete(val ids: Set<String>) : Overlay
 }
@@ -113,7 +127,7 @@ data class UiState(
     val flaggedIds: Set<String> get() = checkup.open.mapTo(HashSet()) { it.item.id }
     /** Anything secret on screen right now, which keeps screenshots and the app switcher blank. */
     val showsSecrets: Boolean get() = revealed.isNotEmpty() || openChips.isNotEmpty() ||
-        overlay is Overlay.Generator || overlay is Overlay.TotpSetup
+        overlay is Overlay.Generator || overlay is Overlay.TotpSetup || overlay is Overlay.Editor
 }
 
 class SigilViewModel(app: Application) : AndroidViewModel(app) {
@@ -661,6 +675,52 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
             if (wasIssue) _state.update { it.copy(fixed = it.fixed + FixedEntry(updated, "New password")) }
             buzz(Haptic.SUCCESS)
             toast("${login.title} now has its own password.", SigilIcon.Check)
+        }
+    }
+
+    fun openNewItem() = buzz(Haptic.TICK).also { _state.update { it.copy(overlay = Overlay.NewItem, sidebarOpen = false) } }
+
+    fun openEditor(editor: Overlay.Editor) = _state.update { it.copy(overlay = editor, sidebarOpen = false) }
+
+    /** The editor's starting point: an existing item with its sealed values opened, or a template. */
+    suspend fun loadDraft(editor: Overlay.Editor): ItemDraft {
+        val space = _state.value.section.space ?: Space.PERSONAL
+        val item = current(editor.itemId)
+        return when {
+            item is LoginItem -> ItemDraft.Login(
+                item.space, item.title, item.category, item.username, repo.revealValue(item.passwordSecretId), item.url,
+                item.fields.map { f -> DraftField(f.id, f.label, f.secretId?.let { repo.revealValue(it) } ?: f.value, f.isSecret) },
+                item.notes,
+            )
+            item is CardItem -> ItemDraft.Card(item.space, item.title, item.holder, repo.revealValue(item.numberSecretId), item.expiry, repo.revealValue(item.codeSecretId))
+            item is WifiItem -> ItemDraft.Wifi(item.space, item.title, item.network, repo.revealValue(item.passwordSecretId), item.security)
+            editor.card -> ItemDraft.Card(space, "", "", "", "", "")
+            editor.wifi -> ItemDraft.Wifi(space, "", "", "", "WPA2/WPA3 Personal")
+            else -> {
+                val c = editor.category ?: com.sigil.app.data.model.Category.LOGIN
+                ItemDraft.Login(space, "", c, "", "", "", c.fields.map { DraftField(Repository.newId("f"), it.label, "", it.secret) }, "")
+            }
+        }
+    }
+
+    fun saveDraft(editor: Overlay.Editor, draft: ItemDraft, original: ItemDraft?) {
+        val base = current(editor.itemId)
+        val passwordChanged = (draft as? ItemDraft.Login)?.password != (original as? ItemDraft.Login)?.password
+        closeOverlay()
+        viewModelScope.launch {
+            val saved = writes.withLock { repo.saveDraft(base, draft, passwordChanged) }
+            override(saved)
+            buzz(Haptic.SUCCESS)
+            if (base == null) {
+                leaveNote()
+                val s = _state.value
+                val section = if (s.section.matches(saved)) s.section else Section.PASSWORDS
+                _state.update { it.copy(section = section, selectedId = saved.id, pane = Pane.DETAIL) }
+                toast("Saved.", SigilIcon.Key)
+            } else {
+                hideAll()
+                toast("Changes saved.", SigilIcon.Check)
+            }
         }
     }
 

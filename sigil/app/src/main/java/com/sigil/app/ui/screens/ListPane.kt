@@ -120,7 +120,7 @@ fun ListPane(state: UiState, vm: SigilViewModel, mode: WindowMode, modifier: Mod
             if (entries.isNotEmpty()) ToolButton(SigilIcon.Checklist, "Select", { vm.beginSelection() })
             ToolButton(SigilIcon.Search, "Find or keep", { vm.openFind() })
             if (section != Section.DELETED) {
-                ToolButton(SigilIcon.Key, "New password", { vm.openGenerator() })
+                ToolButton(SigilIcon.Key, "New password or account", { vm.openNewItem() })
                 ToolButton(SigilIcon.Compose, "New note", { vm.newNote() })
             }
         }

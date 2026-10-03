@@ -14,6 +14,12 @@ import com.sigil.app.data.model.LoginItem
 import com.sigil.app.data.model.NoteItem
 import com.sigil.app.data.model.WifiItem
 import com.sigil.app.ui.Section
+import com.sigil.app.ui.Overlay
+import com.sigil.app.data.model.Category
+import com.sigil.app.data.model.DraftField
+import com.sigil.app.data.model.ItemDraft
+import com.sigil.app.data.model.Space
+import androidx.compose.ui.test.hasText
 import com.sigil.app.ui.SigilViewModel
 import org.junit.Rule
 import org.junit.Test
@@ -85,6 +91,30 @@ class ScreenshotTest {
         shot("16_deleted_item")
         act { confirmDeleteForever(setOf(vm.state.value.selectedId!!)) }
         shot("17_confirm_delete")
+        act { closeOverlay(); go(Section.PASSWORDS); openNewItem() }
+        shot("19_new_item")
+        act { openEditor(Overlay.Editor(category = Category.BANK)) }
+        rule.waitUntil(5_000) { rule.onAllNodes(hasText("New Bank Account")).fetchSemanticsNodes().isNotEmpty() }
+        shot("20_bank_editor")
+        act {
+            saveDraft(
+                Overlay.Editor(category = Category.BANK),
+                ItemDraft.Login(
+                    Space.PERSONAL, "HDFC Bank", Category.BANK, "50123456", "Hdfc@Net2024", "netbanking.hdfcbank.com",
+                    listOf(
+                        DraftField("a", "Account number", "50100123456789", true),
+                        DraftField("b", "IFSC", "HDFC0001234", false),
+                        DraftField("c", "MPIN", "4821", true),
+                        DraftField("d", "App MPIN", "9035", true),
+                    ),
+                    "Branch: Sector 17, Chandigarh",
+                ),
+                null,
+            )
+        }
+        rule.waitUntil(5_000) { vm.state.value.selected?.let { it is LoginItem && it.title == "HDFC Bank" } == true }
+        rule.waitForIdle()
+        shot("21_bank_detail")
         act { closeOverlay(); lock() }
         shot("11_locked")
     }

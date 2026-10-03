@@ -78,6 +78,7 @@ private data class Command(val title: String, val words: String, val icon: Sigil
 private val COMMANDS = listOf(
     Command("New Note", "new note write capture", SigilIcon.Compose) { it.newNote() },
     Command("New Password", "new password login sign in generate", SigilIcon.Key) { it.openGenerator() },
+    Command("New Account or Card", "new account bank card wifi lock license item save", SigilIcon.Plus2) { it.openNewItem() },
     Command("Check-up", "check up security health", SigilIcon.Shield) { it.go(Section.CHECKUP) },
     Command("Lock Sigil", "lock", SigilIcon.Lock) { it.lock() },
 )

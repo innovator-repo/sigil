@@ -66,6 +66,56 @@ data class NoteItem(
     val searchableText: String get() = blocks.joinToString(" ") { it.plainText() }
 }
 
+/**
+ * An extra field on a password item, e.g. a bank's IFSC (plain) or MPIN (sealed). A sealed
+ * field holds only [secretId]; its value lives encrypted in the vault like any password.
+ */
+data class CustomField(val id: String, val label: String, val value: String = "", val secretId: String? = null) {
+    val isSecret: Boolean get() = secretId != null
+}
+
+/** A field a [Category] starts with. */
+data class FieldTemplate(val label: String, val secret: Boolean)
+
+/**
+ * What kind of thing a password item is. Each starts with the fields that kind usually
+ * needs and names its two main fields the way that kind does ("Customer ID", "Client ID").
+ */
+enum class Category(
+    val label: String,
+    val usernameLabel: String,
+    val passwordLabel: String,
+    val fields: List<FieldTemplate> = emptyList(),
+    val hint: String,
+) {
+    LOGIN("Login", "User name", "Password", hint = "Websites and apps: email, Microsoft, Spotify, Jira…"),
+    BANK(
+        "Bank Account", "Customer ID", "Net banking password",
+        listOf(
+            FieldTemplate("Account number", true), FieldTemplate("IFSC", false),
+            FieldTemplate("Net banking PIN", true), FieldTemplate("MPIN", true), FieldTemplate("App MPIN", true),
+        ),
+        hint = "Customer ID, passwords, PINs, account number, IFSC",
+    ),
+    TRADING("Trading & Investing", "Client ID", "Password", listOf(FieldTemplate("PIN", true)), hint = "Brokers and charting: Dhan, Groww, TradingView…"),
+    GOVERNMENT(
+        "Government Portal", "User ID / UAN / PAN", "Password", listOf(FieldTemplate("Registered mobile", false)),
+        hint = "UAN, ITR, MCA, DigiLocker…",
+    ),
+    EDUCATION(
+        "University", "UID", "Password", listOf(FieldTemplate("Student ID", false), FieldTemplate("DEB ID", false)),
+        hint = "Student IDs, portal password and link",
+    ),
+    SIGNATURE(
+        "Digital Signature", "User name", "Password",
+        listOf(FieldTemplate("Challenge code", true), FieldTemplate("Token password", true)),
+        hint = "DSC tokens like eMudhra: challenge code, token password",
+    ),
+    LICENSE("Software License", "Licensed to", "Account password", listOf(FieldTemplate("License key", true), FieldTemplate("Email", false)), hint = "Serial keys: Internet Download Manager…"),
+    LOCK("Lock & PIN", "Device or place", "Code", hint = "Hardware locks, safes, door and gate codes"),
+    OTHER("Other", "User name", "Password", hint = "Anything else, with your own fields"),
+}
+
 data class LoginItem(
     override val id: String,
     override val space: Space,
@@ -81,7 +131,13 @@ data class LoginItem(
     val hasPasskey: Boolean = false,
     val leaked: Boolean = false,
     val supports2FA: Boolean = false,
-) : Item()
+    val category: Category = Category.LOGIN,
+    val fields: List<CustomField> = emptyList(),
+    val notes: String = "",
+) : Item() {
+    /** Some kinds (a license, a lock) may have no main password; it's stored as an empty id. */
+    val hasPassword: Boolean get() = passwordSecretId.isNotEmpty()
+}
 
 data class CardItem(
     override val id: String,
@@ -121,14 +177,16 @@ fun Item.titleText(): String = when (this) {
 /** The subtitle shown under a list row's title (web app's subOf()). */
 fun Item.subtitleText(): String = when (this) {
     is NoteItem -> preview
-    is LoginItem -> username
+    is LoginItem -> username.ifBlank { if (category == Category.LOGIN) "" else category.label }
     is CardItem -> "•••• $last4"
     is WifiItem -> network
 }
 
 fun Item.searchableBody(): String = when (this) {
     is NoteItem -> searchableText
-    is LoginItem -> "$username $url"
+    is LoginItem -> listOf(username, url, category.label, notes)
+        .plus(fields.flatMap { listOf(it.label, if (it.isSecret) "" else it.value) })
+        .joinToString(" ")
     is CardItem -> holder
     is WifiItem -> "$network $security"
 }

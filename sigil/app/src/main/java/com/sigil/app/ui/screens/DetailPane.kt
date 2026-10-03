@@ -43,6 +43,7 @@ import com.sigil.app.data.model.Item
 import com.sigil.app.data.model.LoginItem
 import com.sigil.app.data.model.NoteItem
 import com.sigil.app.data.model.WifiItem
+import com.sigil.app.data.model.titleText
 import com.sigil.app.editor.NoteDoc
 import com.sigil.app.editor.SealRef
 import com.sigil.app.ui.Haptic
@@ -122,6 +123,12 @@ private fun ItemActions(item: Item, vm: SigilViewModel) {
     if (item.isDeleted) {
         ToolButton(SigilIcon.Trash, "Delete now", { vm.confirmDeleteForever(setOf(item.id)) }, tint = Sigil.colors.critical)
         return
+    }
+    if (item !is NoteItem) {
+        val presence = LocalPresence.current
+        ToolButton(SigilIcon.Compose, "Edit", {
+            presence.require("Edit ${item.titleText()}") { vm.openEditor(com.sigil.app.ui.Overlay.Editor(itemId = item.id)) }
+        })
     }
     ToolButton(if (item.pinned) SigilIcon.Unpin else SigilIcon.Pin, if (item.pinned) "Unpin" else "Pin", { vm.togglePin() }, tint = if (item.pinned) Sigil.colors.tint else Sigil.colors.label2)
     ToolButton(SigilIcon.Trash, "Delete", { vm.delete() })
