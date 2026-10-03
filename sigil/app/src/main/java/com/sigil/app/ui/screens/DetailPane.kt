@@ -45,6 +45,7 @@ import com.sigil.app.data.model.NoteItem
 import com.sigil.app.data.model.WifiItem
 import com.sigil.app.editor.NoteDoc
 import com.sigil.app.editor.SealRef
+import com.sigil.app.ui.Haptic
 import com.sigil.app.ui.LocalPresence
 import com.sigil.app.ui.Section
 import com.sigil.app.ui.SigilViewModel
@@ -187,7 +188,9 @@ private fun NotePage(note: NoteItem, state: UiState, vm: SigilViewModel, mode: W
         val found = SecretDetector.findSecrets(editor.doc.lineTextForDetection(line))
             .filter { it.confidence >= 0.6 && !vm.isDismissed(it.value) }
             .lastOrNull()
-        suggestion = found?.let { Suggestion(line, it.value, it.label) }
+        val next = found?.let { Suggestion(line, it.value, it.label) }
+        if (next != null && next != suggestion) vm.buzz(Haptic.NUDGE)
+        suggestion = next
     }
 
     fun sealRange(start: Int, end: Int, value: String, label: String) {
@@ -217,7 +220,7 @@ private fun NotePage(note: NoteItem, state: UiState, vm: SigilViewModel, mode: W
     fun sealSelection() {
         val sel = editor.value.selection
         if (sel.collapsed || !editor.focused) {
-            vm.toast("Select text to seal it, or just type a password. Sigil will offer.", SigilIcon.Lock)
+            vm.reject("Select text to seal it, or just type a password. Sigil will offer.", SigilIcon.Lock)
             return
         }
         var start = sel.min
@@ -228,7 +231,7 @@ private fun NotePage(note: NoteItem, state: UiState, vm: SigilViewModel, mode: W
         val chosen = text.substring(start, end)
         if (chosen.isEmpty()) return
         if ('\n' in chosen) {
-            vm.toast("Select text within one line to seal it.", SigilIcon.Lock)
+            vm.reject("Select text within one line to seal it.", SigilIcon.Lock)
             return
         }
         if (com.sigil.app.editor.SEAL_CHAR in chosen) return
@@ -239,10 +242,11 @@ private fun NotePage(note: NoteItem, state: UiState, vm: SigilViewModel, mode: W
     fun toggleChecklist() {
         val line = editor.cursorLine
         if (!editor.focused || line == 0) {
-            vm.toast("Put the cursor on a line to turn it into a checklist item.", SigilIcon.Checklist)
+            vm.reject("Put the cursor on a line to turn it into a checklist item.", SigilIcon.Checklist)
             return
         }
         val doc = editor.doc.toggleChecklist(line)
+        vm.buzz(Haptic.TICK)
         editor.update(doc)
         vm.onNoteEdited(note.id, doc)
     }
@@ -280,6 +284,7 @@ private fun NotePage(note: NoteItem, state: UiState, vm: SigilViewModel, mode: W
                             }
                         },
                         onToggleDone = { line ->
+                            vm.buzz(if (editor.doc.lines[line].done) Haptic.UNCHECK else Haptic.CHECK)
                             val doc = editor.doc.toggleDone(line)
                             editor.update(doc)
                             vm.onNoteEdited(note.id, doc)
@@ -310,6 +315,7 @@ private fun NotePage(note: NoteItem, state: UiState, vm: SigilViewModel, mode: W
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         SButton("Not a Secret", {
+                            vm.buzz(Haptic.TICK)
                             vm.dismissSecret(shown.value)
                             suggestion = null
                         })

@@ -12,6 +12,10 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.sigil.app.ui.Haptics
+import kotlinx.coroutines.launch
 import com.sigil.app.ui.LocalPresence
 import com.sigil.app.ui.Presence
 import com.sigil.app.ui.SigilApp
@@ -26,6 +30,10 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val presence = Presence(this, vm)
+        val haptics = Haptics(this)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) { vm.haptics.collect(haptics::play) }
+        }
         lifecycle.addObserver(
             LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_STOP) vm.onBackgrounded() },
         )

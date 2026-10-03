@@ -21,7 +21,10 @@ import com.sigil.app.ui.theme.SigilIcon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -114,6 +117,15 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
     private val _state = MutableStateFlow(UiState(locked = prefs.getBoolean(SigilApplication.KEY_LOCKED, false)))
     val state: StateFlow<UiState> = _state.asStateFlow()
 
+    private val _haptics = MutableSharedFlow<Haptic>(extraBufferCapacity = 8)
+
+    /** Touch feedback for what just happened; the activity plays it. */
+    val haptics: SharedFlow<Haptic> = _haptics.asSharedFlow()
+
+    fun buzz(h: Haptic) {
+        _haptics.tryEmit(h)
+    }
+
     private var repoItems: List<Item> = emptyList()
 
     /**
@@ -175,6 +187,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
     // ───────── Navigation ─────────
 
     fun go(section: Section) {
+        buzz(Haptic.TICK)
         leaveNote()
         hideAll()
         _state.update { s ->
@@ -188,6 +201,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun select(id: String) {
+        buzz(Haptic.TICK)
         if (id != _state.value.selectedId) leaveNote()
         hideAll()
         _state.update { it.copy(selectedId = id, pane = Pane.DETAIL, overlay = null) }
@@ -211,11 +225,15 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(pane = Pane.LIST) }
     }
 
-    fun setSidebarOpen(open: Boolean) = _state.update { it.copy(sidebarOpen = open) }
+    fun setSidebarOpen(open: Boolean) {
+        if (open) buzz(Haptic.TICK)
+        _state.update { it.copy(sidebarOpen = open) }
+    }
 
     // ───────── Notes ─────────
 
     fun newNote(seed: String = "") {
+        buzz(Haptic.CLICK)
         leaveNote()
         val s = _state.value
         val doc = NoteDoc.withTitle(seed.trim())
@@ -271,7 +289,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun sealSecret(value: String): String = writes.withLock { repo.sealValue(value) }
 
-    fun noteSealed() = toast("Sealed. It stays hidden until you reveal it.", SigilIcon.Lock)
+    fun noteSealed() = buzz(Haptic.SEAL).also { toast("Sealed. It stays hidden until you reveal it.", SigilIcon.Lock) }
 
     fun dismissSecret(value: String) {
         dismissedSecrets.add(value)
@@ -293,6 +311,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         saveJob?.cancel()
         override(updated)
         write { repo.save(updated) }
+        buzz(if (pinned) Haptic.CLICK else Haptic.TICK)
         toast(if (pinned) "Pinned." else "Unpinned.", SigilIcon.Pin)
     }
 
@@ -305,7 +324,9 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         override(deleted)
         write { repo.save(deleted) }
         _state.update { s -> s.copy(selectedId = s.listItems().firstOrNull()?.id, pane = Pane.LIST) }
+        buzz(Haptic.THUD)
         toast("Moved to Recently Deleted.", SigilIcon.Trash, "Undo") {
+            buzz(Haptic.TICK)
             val restored = withDeletedAt(deleted, null)
             override(restored)
             write { repo.save(restored) }
@@ -319,6 +340,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         override(restored)
         write { repo.save(restored) }
         _state.update { it.copy(section = Section.ALL, selectedId = item.id) }
+        buzz(Haptic.SUCCESS)
         toast("Recovered.", SigilIcon.Check)
     }
 
@@ -351,15 +373,18 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
             val value = repo.revealValue(secretId)
             val until = System.currentTimeMillis() + REVEAL_MS
             _state.update { it.copy(revealed = it.revealed + (key to Revealed(value, until))) }
+            buzz(Haptic.REVEAL)
             revealJobs.remove(key)?.cancel()
             revealJobs[key] = launch {
                 delay(REVEAL_MS)
                 _state.update { it.copy(revealed = it.revealed - key) }
+                buzz(Haptic.HIDE)
             }
         }
     }
 
     fun hide(key: String) {
+        if (key in _state.value.revealed) buzz(Haptic.HIDE)
         revealJobs.remove(key)?.cancel()
         _state.update { it.copy(revealed = it.revealed - key) }
     }
@@ -369,10 +394,12 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
             val value = repo.revealValue(secretId)
             val key = "chip:$secretId"
             _state.update { it.copy(openChips = it.openChips + (secretId to Revealed(value, System.currentTimeMillis() + REVEAL_MS))) }
+            buzz(Haptic.REVEAL)
             revealJobs.remove(key)?.cancel()
             revealJobs[key] = launch {
                 delay(REVEAL_MS)
                 _state.update { it.copy(openChips = it.openChips - secretId) }
+                buzz(Haptic.HIDE)
             }
         }
     }
@@ -389,6 +416,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
 
     fun copyValue(value: String, label: String, sensitive: Boolean = true) {
         sigil.clipboard.copy(value, sensitive)
+        buzz(Haptic.CLICK)
         toast(if (sensitive) "$label copied. Clears in 60 seconds." else "$label copied.", SigilIcon.Copy)
     }
 
@@ -402,6 +430,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         flush()
         hideAll()
         presenceUntil = 0
+        buzz(Haptic.THUD)
         prefs.edit().putBoolean(SigilApplication.KEY_LOCKED, true).apply()
         _state.update { it.copy(locked = true, overlay = null, sidebarOpen = false) }
     }
@@ -409,6 +438,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
     fun unlocked() {
         prefs.edit().putBoolean(SigilApplication.KEY_LOCKED, false).apply()
         _state.update { it.copy(locked = false) }
+        buzz(Haptic.SUCCESS)
         toast("Unlocked.", SigilIcon.Lock)
     }
 
@@ -420,7 +450,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
 
     // ───────── Overlays ─────────
 
-    fun openFind(initial: String = "") = _state.update { it.copy(overlay = Overlay.Find(initial), sidebarOpen = false) }
+    fun openFind(initial: String = "") = buzz(Haptic.TICK).also { _state.update { it.copy(overlay = Overlay.Find(initial), sidebarOpen = false) } }
     fun openGenerator(changeItemId: String? = null) = _state.update { it.copy(overlay = Overlay.Generator(changeItemId), sidebarOpen = false) }
     fun closeOverlay() = _state.update { it.copy(overlay = null) }
 
@@ -437,6 +467,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
             val section = if (s.section == Section.PASSWORDS || s.section == Section.ALL || s.section.space == space) s.section else Section.PASSWORDS
             leaveNote()
             _state.update { it.copy(section = section, selectedId = login.id, pane = Pane.DETAIL) }
+            buzz(Haptic.SUCCESS)
             toast(if (url.isNotEmpty()) "Saved for $url." else "Saved.", SigilIcon.Key)
         }
     }
@@ -450,6 +481,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
             val updated = writes.withLock { repo.updateLoginPassword(login, password) }
             override(updated)
             if (wasIssue) _state.update { it.copy(fixed = it.fixed + FixedEntry(updated, "New password")) }
+            buzz(Haptic.SUCCESS)
             toast("${login.title} now has its own password.", SigilIcon.Check)
         }
     }
@@ -464,6 +496,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
             val updated = writes.withLock { repo.turnOn2FA(login, seed) }
             override(updated)
             if (wasIssue) _state.update { it.copy(fixed = it.fixed + FixedEntry(updated, "Codes on")) }
+            buzz(Haptic.SUCCESS)
             toast("Verification codes are on for ${login.title}.", SigilIcon.Check)
         }
     }
@@ -475,6 +508,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun snooze(issue: SecurityIssue) {
+        buzz(Haptic.TICK)
         snoozed = snoozed.filter { it != issue.key } + issue.key
         recomputeCheckup()
     }
@@ -498,6 +532,12 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
             delay(if (action != null) 6000 else 3600)
             _state.update { if (it.toast?.id == t.id) it.copy(toast = null) else it }
         }
+    }
+
+    /** "That didn't work" - a toast that explains, with the matching tap. */
+    fun reject(text: String, icon: SigilIcon) {
+        buzz(Haptic.REJECT)
+        toast(text, icon)
     }
 
     fun runToastAction() {

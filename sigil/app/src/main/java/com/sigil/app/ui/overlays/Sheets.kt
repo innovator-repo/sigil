@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import com.sigil.app.data.model.Item
 import com.sigil.app.data.model.LoginItem
 import com.sigil.app.data.model.titleText
+import com.sigil.app.ui.Haptic
 import com.sigil.app.ui.LocalPresence
 import com.sigil.app.ui.SigilViewModel
 import com.sigil.app.ui.ToastMessage
@@ -139,7 +140,7 @@ fun GeneratorSheet(changing: Item?, state: UiState, vm: SigilViewModel) {
                     Modifier.weight(1f)
                         .then(if (on) Modifier.shadow(2.dp, RoundedCornerShape(7.dp)) else Modifier)
                         .clip(RoundedCornerShape(7.dp)).background(if (on) c.paper else Color.Transparent)
-                        .tap { style = s }.padding(vertical = 7.dp),
+                        .tap { if (style != s) vm.buzz(Haptic.TICK); style = s }.padding(vertical = 7.dp),
                     contentAlignment = Alignment.Center,
                 ) { Text(label, style = SigilType.meta, fontWeight = FontWeight.Medium, color = c.label) }
             }
@@ -162,12 +163,12 @@ fun GeneratorSheet(changing: Item?, state: UiState, vm: SigilViewModel) {
         Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
             if (style == GeneratorStyle.MEMORABLE) {
                 Row(Modifier.clip(RoundedCornerShape(8.dp)).background(c.fill).padding(2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Stepper("−", "Fewer words") { words = (words - 1).coerceAtLeast(3) }
+                    Stepper("−", "Fewer words") { vm.buzz(if (words > 3) Haptic.TICK else Haptic.REJECT); words = (words - 1).coerceAtLeast(3) }
                     Text("$words words", style = SigilType.meta, color = c.label, textAlign = TextAlign.Center, modifier = Modifier.width(64.dp))
-                    Stepper("+", "More words") { words = (words + 1).coerceAtMost(8) }
+                    Stepper("+", "More words") { vm.buzz(if (words < 8) Haptic.TICK else Haptic.REJECT); words = (words + 1).coerceAtMost(8) }
                 }
             }
-            Pill("Another One", { seed++ }, SigilIcon.Refresh)
+            Pill("Another One", { vm.buzz(Haptic.CLICK); seed++ }, SigilIcon.Refresh)
         }
         Text(NOTES.getValue(style), style = SigilType.meta, color = c.label2, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
