@@ -1,65 +1,95 @@
 package com.sigil.app.ui.theme
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.Login
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Checklist
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.CreditCard
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Fingerprint
-import androidx.compose.material.icons.outlined.Groups
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Menu
-import androidx.compose.material.icons.outlined.MoreHoriz
-import androidx.compose.material.icons.outlined.OpenInNew
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material.icons.outlined.VpnKey
-import androidx.compose.material.icons.outlined.WarningAmber
-import androidx.compose.material.icons.outlined.Wifi
-import androidx.compose.material.icons.outlined.Work
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.addPathNodes
+import androidx.compose.ui.unit.dp
 
-/** Central place every screen pulls its icons from, so a substitution only needs one edit. */
-object SigilIcons {
-    val Search = Icons.Outlined.Search
-    val Note = Icons.Outlined.Description
-    val Key = Icons.Outlined.VpnKey
-    val Pin = Icons.Outlined.PushPin
-    val Person = Icons.Outlined.Person
-    val Family = Icons.Outlined.Groups
-    val Work = Icons.Outlined.Work
-    val Checkup = Icons.Outlined.Shield
-    val Trash = Icons.Outlined.Delete
-    val Lock = Icons.Outlined.Lock
-    val Compose = Icons.Outlined.Edit
-    val Copy = Icons.Outlined.ContentCopy
-    val Refresh = Icons.Outlined.Refresh
-    val Back = Icons.AutoMirrored.Outlined.ArrowBack
-    val Checklist = Icons.Outlined.Checklist
-    val External = Icons.Outlined.OpenInNew
-    val Card = Icons.Outlined.CreditCard
-    val Wifi = Icons.Outlined.Wifi
-    val Sidebar = Icons.Outlined.Menu
-    val Plus = Icons.Outlined.Add
-    val Check = Icons.Outlined.Check
-    val CheckCircle = Icons.Outlined.CheckCircle
-    val Passkey = Icons.Outlined.Fingerprint
-    val Warn = Icons.Outlined.WarningAmber
-    val Close = Icons.Outlined.Close
-    val More = Icons.Outlined.MoreHoriz
-    val Reveal = Icons.Outlined.Visibility
-    val Hide = Icons.Outlined.VisibilityOff
-    val LoginGlyph = Icons.AutoMirrored.Outlined.Login
+/**
+ * The prototype's icon set, ported path-for-path from its inline SVGs (24x24 viewBox,
+ * round caps and joins, no fill) so Sigil's icons are the same drawings, not look-alikes.
+ * Icons are tinted by [androidx.compose.material3.Icon] like any other vector.
+ */
+enum class SigilIcon(vararg val parts: String) {
+    Search(circle(11f, 11f, 6.5f), "M20 20l-4.3-4.3"),
+    All(rect(4f, 7.5f, 12.5f, 12.5f, 3f), "M8 4.5h8.5a3 3 0 0 1 3 3V16"),
+    Note(
+        "M6.5 3.5h7.5l4 4v12.5a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5z",
+        "M9 11.5h6M9 15h6M9 18.5h3.5",
+    ),
+    Key(circle(8f, 15.5f, 4f), "M10.9 12.6L19 4.5M16 7.5l2.5 2.5M13.8 9.7l2 2"),
+    Pin("M9 3.5h6l-.8 5.2 3.3 3.3H6.5l3.3-3.3z", "M12 12v8.5"),
+    Unpin("M9 3.5h6l-.8 5.2 3.3 3.3H6.5l3.3-3.3z", "M12 12v8.5M4 4l16 16"),
+    Person(circle(12f, 8f, 3.5f), "M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"),
+    People(
+        circle(9f, 8.5f, 3f),
+        "M3.5 19c.6-3 2.8-4.7 5.5-4.7s4.9 1.7 5.5 4.7",
+        circle(16.5f, 9.5f, 2.5f),
+        "M16.2 14.4c2.3 0 3.9 1.4 4.3 4",
+    ),
+    Briefcase(rect(3.5f, 7.5f, 17f, 12f, 2.5f), "M9 7.5V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1.5M3.5 12.5h17"),
+    Shield("M12 3.5l7 2.8v5.4c0 4.3-2.9 7.6-7 8.8-4.1-1.2-7-4.5-7-8.8V6.3z", "M9 12l2 2 4-4"),
+    Trash("M4.5 7h15M9.5 7V5h5v2M6.5 7l1 12.5h9l1-12.5"),
+    Lock(rect(5f, 10.5f, 14f, 10f, 2.5f), "M8 10.5V7.5a4 4 0 0 1 8 0v3"),
+    Compose(
+        "M12.5 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-6",
+        "M18.3 3.7a1.7 1.7 0 0 1 2.4 2.4l-8.2 8.2-3 .7.7-3z",
+    ),
+    Copy(
+        rect(8.5f, 8.5f, 11f, 11f, 2.5f),
+        "M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5",
+    ),
+    Refresh("M19.5 12a7.5 7.5 0 1 1-2.2-5.3", "M19.5 4.5v4h-4"),
+    Back("M15 5l-7 7 7 7"),
+    Checklist("M4 6.5l1.5 1.5 3-3M4 14.5l1.5 1.5 3-3M11.5 7h8.5M11.5 15h8.5"),
+    External("M8 16l8.5-8.5M9 7.5h7.5V15"),
+    Card(rect(3f, 6f, 18f, 12.5f, 2.5f), "M3 10h18M6.5 15h4"),
+    Wifi("M2.8 9.3a13 13 0 0 1 18.4 0M5.8 12.6a8.7 8.7 0 0 1 12.4 0M8.8 15.9a4.3 4.3 0 0 1 6.4 0M12 19.2v.1"),
+    Sidebar(rect(3.5f, 5f, 17f, 14f, 2.5f), "M9.5 5v14"),
+    Plus("M12 5v14M5 12h14"),
+    Check("M5 12.5l4.5 4.5L19 7.5"),
+    Passkey(
+        circle(9f, 8f, 3.5f),
+        "M3 19.5c.7-3.4 3.1-5.2 6-5.2 1.1 0 2.2.3 3.1.8",
+        circle(17.5f, 12.5f, 2.2f),
+        "M17.5 14.7v5.3M17.5 18h1.8",
+    ),
+    Warn("M12 4.5l8.5 15h-17z", "M12 10v4M12 16.8v.2"),
+    Code(circle(12f, 12f, 8f), "M12 7.5V12l3 2"),
+    Close("M6.5 6.5l11 11M17.5 6.5l-11 11"),
+
+    /** The app mark: a page with a padlock on it - notes and secrets in one place. */
+    AppMark("M7 4.5h7.5l3.5 3.5v11.5H7z", rect(9.5f, 12f, 6f, 4.5f, 1f), "M10.8 12v-1.2a1.7 1.7 0 0 1 3.4 0V12"),
+    ;
+
+    private val cache = HashMap<Float, ImageVector>()
+
+    /** This icon drawn with the given stroke width (the CSS uses 1.8 by default, 2-2.2 in pills and tiles). */
+    fun vector(stroke: Float = 1.8f): ImageVector = cache.getOrPut(stroke) {
+        val b = ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f)
+        for (p in parts) {
+            b.addPath(
+                pathData = addPathNodes(p),
+                fill = null,
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = stroke,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            )
+        }
+        b.build()
+    }
+}
+
+private fun circle(cx: Float, cy: Float, r: Float): String =
+    "M${cx - r},${cy}a$r,$r 0 1,0 ${2 * r},0a$r,$r 0 1,0 ${-2 * r},0z"
+
+private fun rect(x: Float, y: Float, w: Float, h: Float, rx: Float): String {
+    val iw = w - 2 * rx
+    val ih = h - 2 * rx
+    return "M${x + rx},${y}h${iw}a$rx,$rx 0 0 1 $rx,${rx}v${ih}a$rx,$rx 0 0 1 ${-rx},${rx}" +
+        "h${-iw}a$rx,$rx 0 0 1 ${-rx},${-rx}v${-ih}a$rx,$rx 0 0 1 $rx,${-rx}z"
 }

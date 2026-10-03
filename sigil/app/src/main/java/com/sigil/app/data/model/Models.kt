@@ -1,13 +1,13 @@
 package com.sigil.app.data.model
 
-/** A Space partitions items the way the web prototype's sidebar does. */
-enum class Space(val label: String, val sharedNote: String? = null) {
+/**
+ * A Space partitions items the way the prototype's sidebar does. Spaces are local to this
+ * device: Sigil has no sync or sharing, so unlike the prototype it never says a Space is shared.
+ */
+enum class Space(val label: String) {
     PERSONAL("Personal"),
-    FAMILY("Family", "Family · shared with 3 people"),
+    FAMILY("Family"),
     WORK("Work"),
-    ;
-
-    val detailLabel: String get() = sharedNote ?: label
 }
 
 /** One run of a note block's content: either plain text, or a sealed secret rendered as a chip. */

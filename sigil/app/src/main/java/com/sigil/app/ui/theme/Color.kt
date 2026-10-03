@@ -4,7 +4,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /**
- * Every semantic color token from the Kept design system's CSS variables, carried over
+ * Every semantic color token from the Kept prototype's CSS variables, carried over
  * verbatim (light + dark) so Sigil reads as the same app. Exposed via [LocalSigilColors]
  * rather than squeezed into Material3's limited role set, which has no room for things
  * like a "seal" tint or eight tile colors.
@@ -20,6 +20,8 @@ data class SigilColors(
     val fill2: Color,
     val tint: Color,
     val tintSoft: Color,
+    /** Selected list row / active search option background. */
+    val sel: Color,
     val seal: Color,
     val sealSoft: Color,
     val note: Color,
@@ -53,6 +55,7 @@ val LightSigilColors = SigilColors(
     fill2 = Color(0x12787880),
     tint = Color(0xFF0071E3),
     tintSoft = Color(0x1A0071E3),
+    sel = Color(0xFF0071E3),
     seal = Color(0xFF5856D6),
     sealSoft = Color(0x1C5856D6),
     note = Color(0xFFC98A00),
@@ -89,6 +92,7 @@ val DarkSigilColors = SigilColors(
     fill2 = Color(0x24787880),
     tint = Color(0xFF2997FF),
     tintSoft = Color(0x292997FF),
+    sel = Color(0xFF0A5FC2),
     seal = Color(0xFF8E8BFF),
     sealSoft = Color(0x2E7D7AFF),
     note = Color(0xFFFFD60A),
@@ -116,9 +120,12 @@ val DarkSigilColors = SigilColors(
 
 val LocalSigilColors = staticCompositionLocalOf { DarkSigilColors }
 
-/** Deterministic tile color for an item's monogram glyph, matching the web app's tileFor(). */
+/**
+ * Deterministic tile color for an item's monogram, matching the prototype's tileFor():
+ * a 32-bit rolling hash, so the same site always gets the same color.
+ */
 fun SigilColors.tileFor(seed: String): Color {
-    var h = 0
-    for (c in seed) h = (h * 31 + c.code) and 0x7FFFFFFF
-    return tiles[h % tiles.size]
+    var h = 0L
+    for (c in seed) h = (h * 31 + c.code) and 0xFFFFFFFFL
+    return tiles[(h % tiles.size).toInt()]
 }

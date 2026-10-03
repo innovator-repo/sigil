@@ -10,11 +10,10 @@ import com.sigil.app.data.model.Space
 import com.sigil.app.data.model.WifiItem
 
 /**
- * The same example content the Kept web prototype ships with (fictional - not anyone's real
+ * The same example content the Kept prototype ships with (fictional - not anyone's real
  * accounts), so a fresh install of Sigil demonstrates every surface immediately.
  */
 object SampleData {
-    private const val MIN = 60_000L
     private const val HOUR = 3_600_000L
     private const val DAY = 86_400_000L
 
@@ -47,7 +46,7 @@ object SampleData {
             ),
         )
 
-        // l1 - Google (root account, reused password)
+        // l1 - Google (root account, password reused by Airbnb and Dropbox - each has its own copy)
         val summerPw = seal("Summer2019!")
         repo.saveLogin(
             LoginItem(
@@ -110,7 +109,7 @@ object SampleData {
         repo.saveWifi(
             WifiItem(
                 id = "w1", space = Space.FAMILY, pinned = true, updated = now - 120 * DAY,
-                title = "Home Wi-Fi", network = "Morgan-Home", passwordSecretId = homeWifiPw, security = "WPA3 Personal",
+                title = "Home Wi\u2011Fi", network = "Morgan-Home", passwordSecretId = homeWifiPw, security = "WPA3 Personal",
             ),
         )
 
@@ -174,7 +173,7 @@ object SampleData {
         repo.saveLogin(
             LoginItem(
                 id = "l6", space = Space.PERSONAL, updated = now - 300 * DAY,
-                title = "Airbnb", username = "alex.morgan@gmail.com", passwordSecretId = summerPw,
+                title = "Airbnb", username = "alex.morgan@gmail.com", passwordSecretId = seal("Summer2019!"),
                 url = "airbnb.com",
             ),
         )
@@ -194,7 +193,7 @@ object SampleData {
         repo.saveLogin(
             LoginItem(
                 id = "l7", space = Space.PERSONAL, updated = now - 500 * DAY,
-                title = "Dropbox", username = "alex.morgan@gmail.com", passwordSecretId = summerPw,
+                title = "Dropbox", username = "alex.morgan@gmail.com", passwordSecretId = seal("Summer2019!"),
                 url = "dropbox.com",
             ),
         )

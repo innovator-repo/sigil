@@ -3,7 +3,6 @@ package com.sigil.app.data
 import com.sigil.app.data.model.CardItem
 import com.sigil.app.data.model.Item
 import com.sigil.app.data.model.LoginItem
-import com.sigil.app.data.model.NoteBlock
 import com.sigil.app.data.model.NoteItem
 import com.sigil.app.data.model.Segment
 import com.sigil.app.data.model.Space
@@ -12,7 +11,6 @@ import com.sigil.app.security.SecretVault
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.firstOrNull
 
 /**
  * The single source of truth for everything Sigil shows: merges the four item tables into
@@ -51,29 +49,10 @@ class Repository(
         return vault.open(SealedSecret(entity.ciphertext, entity.iv))
     }
 
-    /** Re-seals [plaintext] under a brand-new id and drops the old one, so stale ciphertext never lingers. */
-    suspend fun rotateValue(oldSecretId: String, plaintext: String): String {
-        val newId = sealValue(plaintext)
-        db.secretDao().delete(oldSecretId)
-        return newId
-    }
-
     // ───────── Notes ─────────
 
     suspend fun saveNote(note: NoteItem) = db.noteDao().upsert(note.toEntity())
 
-    suspend fun createNote(space: Space, seedText: String? = null): NoteItem {
-        val blocks = if (seedText.isNullOrBlank()) {
-            listOf(NoteBlock(id = newBlockId()))
-        } else {
-            listOf(NoteBlock(id = newBlockId(), segments = listOf(Segment.Text(seedText))), NoteBlock(id = newBlockId()))
-        }
-        val note = NoteItem(id = newId("n"), space = space, updated = System.currentTimeMillis(), blocks = blocks)
-        db.noteDao().upsert(note.toEntity())
-        return note
-    }
-
-    suspend fun deleteNoteForever(note: NoteItem) = db.noteDao().delete(note.toEntity())
 
     // ───────── Logins ─────────
 
@@ -90,7 +69,8 @@ class Repository(
     suspend fun saveLogin(login: LoginItem) = db.loginDao().upsert(login.toEntity())
 
     suspend fun updateLoginPassword(login: LoginItem, newPlaintext: String): LoginItem {
-        val newId = rotateValue(login.passwordSecretId, newPlaintext)
+        // The old ciphertext is left for collectGarbage(): other items may still point at it.
+        val newId = sealValue(newPlaintext)
         val updated = login.copy(passwordSecretId = newId, leaked = false, updated = System.currentTimeMillis())
         db.loginDao().upsert(updated.toEntity())
         return updated
@@ -110,11 +90,7 @@ class Repository(
 
     // ───────── Shared item actions ─────────
 
-    suspend fun setPinned(item: Item, pinned: Boolean) = saveAny(withPinned(item, pinned))
-    suspend fun softDelete(item: Item) = saveAny(withDeletedAt(item, System.currentTimeMillis()))
-    suspend fun restore(item: Item) = saveAny(withDeletedAt(item, null))
-
-    private suspend fun saveAny(item: Item) {
+    suspend fun save(item: Item) {
         when (item) {
             is NoteItem -> db.noteDao().upsert(item.toEntity())
             is LoginItem -> db.loginDao().upsert(item.toEntity())
@@ -123,26 +99,45 @@ class Repository(
         }
     }
 
-    private fun withPinned(item: Item, pinned: Boolean): Item = when (item) {
-        is NoteItem -> item.copy(pinned = pinned)
-        is LoginItem -> item.copy(pinned = pinned)
-        is CardItem -> item.copy(pinned = pinned)
-        is WifiItem -> item.copy(pinned = pinned)
+    /** Removes an item for good (used for empty notes and for Recently Deleted after 30 days). */
+    suspend fun hardDelete(item: Item) {
+        when (item) {
+            is NoteItem -> db.noteDao().deleteById(item.id)
+            is LoginItem -> db.loginDao().deleteById(item.id)
+            is CardItem -> db.cardDao().deleteById(item.id)
+            is WifiItem -> db.wifiDao().deleteById(item.id)
+        }
     }
 
-    private fun withDeletedAt(item: Item, at: Long?): Item = when (item) {
-        is NoteItem -> item.copy(deletedAt = at)
-        is LoginItem -> item.copy(deletedAt = at)
-        is CardItem -> item.copy(deletedAt = at)
-        is WifiItem -> item.copy(deletedAt = at)
+    /** "Kept for 30 days, then removed": drops anything deleted longer ago than that. */
+    suspend fun purgeExpired(now: Long = System.currentTimeMillis()) {
+        val before = now - RECENTLY_DELETED_MS
+        db.noteDao().purgeDeletedBefore(before)
+        db.loginDao().purgeDeletedBefore(before)
+        db.cardDao().purgeDeletedBefore(before)
+        db.wifiDao().purgeDeletedBefore(before)
     }
 
-    suspend fun seedIfEmpty() {
-        if (db.noteDao().observeAll().firstValueOrEmpty().isNotEmpty()) return
-        SampleData.seed(this)
+    /**
+     * Deletes ciphertext no item points at any more: chips removed from a note, items purged
+     * from Recently Deleted. Run at startup, never mid-edit, so an in-flight chip is never lost.
+     */
+    suspend fun collectGarbage() {
+        val used = HashSet<String>()
+        db.noteDao().all().forEach { n ->
+            NoteBlockJson.decode(n.blocksJson).forEach { b -> b.segments.forEach { if (it is Segment.Seal) used.add(it.secretId) } }
+        }
+        db.loginDao().all().forEach { used.add(it.passwordSecretId); it.totpSecretId?.let(used::add) }
+        db.cardDao().all().forEach { used.add(it.numberSecretId); used.add(it.codeSecretId) }
+        db.wifiDao().all().forEach { used.add(it.passwordSecretId) }
+        db.secretDao().allIds().filterNot { it in used }.forEach { db.secretDao().delete(it) }
     }
+
+    suspend fun seedSampleData() = SampleData.seed(this)
 
     companion object {
+        const val RECENTLY_DELETED_MS = 30L * 86_400_000L
+
         fun newId(prefix: String): String = "$prefix-" + UUID.randomUUID().toString().take(8)
         fun newBlockId(): String = "b-" + UUID.randomUUID().toString().take(8)
     }
@@ -187,5 +182,3 @@ private fun WifiItem.toEntity() = WifiEntity(
     id = id, space = space.name, pinned = pinned, updated = updated, deletedAt = deletedAt,
     title = title, network = network, passwordSecretId = passwordSecretId, security = security,
 )
-
-private suspend fun <T> Flow<List<T>>.firstValueOrEmpty(): List<T> = firstOrNull() ?: emptyList()
