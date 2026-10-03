@@ -119,7 +119,10 @@ private fun Toolbar(content: @Composable () -> Unit) {
 
 @Composable
 private fun ItemActions(item: Item, vm: SigilViewModel) {
-    if (item.isDeleted) return
+    if (item.isDeleted) {
+        ToolButton(SigilIcon.Trash, "Delete now", { vm.confirmDeleteForever(setOf(item.id)) }, tint = Sigil.colors.critical)
+        return
+    }
     ToolButton(if (item.pinned) SigilIcon.Unpin else SigilIcon.Pin, if (item.pinned) "Unpin" else "Pin", { vm.togglePin() }, tint = if (item.pinned) Sigil.colors.tint else Sigil.colors.label2)
     ToolButton(SigilIcon.Trash, "Delete", { vm.delete() })
 }
@@ -145,6 +148,8 @@ fun DeletedBanner(vm: SigilViewModel) {
         Text("In Recently Deleted. Kept for 30 days, then removed.", style = SigilType.small, color = c.label2, modifier = Modifier.weight(1f))
         Spacer(Modifier.padding(start = 12.dp))
         Pill("Recover", { vm.recover() })
+        Spacer(Modifier.padding(start = 6.dp))
+        Pill("Delete Now", { vm.state.value.selectedId?.let { vm.confirmDeleteForever(setOf(it)) } }, color = c.critical)
     }
 }
 

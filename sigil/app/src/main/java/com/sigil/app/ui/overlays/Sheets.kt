@@ -230,6 +230,26 @@ fun TotpSetupSheet(item: Item, vm: SigilViewModel) {
     }
 }
 
+/** Deleting from Recently Deleted can't be undone, so it asks once, plainly. */
+@Composable
+fun ConfirmDeleteSheet(ids: Set<String>, state: UiState, vm: SigilViewModel) {
+    val c = Sigil.colors
+    val n = ids.size
+    val one = state.items.firstOrNull { it.id in ids }?.titleText()
+    Sheet(onDismiss = { vm.closeOverlay() }) {
+        SheetTitle(if (n == 1 && one != null) "Delete “$one” for good?" else "Delete $n items for good?")
+        Text(
+            "This can't be undone. Anything sealed in ${if (n == 1) "it" else "them"} is erased too.",
+            style = SigilType.small, color = c.label2, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 18.dp),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SButton("Cancel", { vm.closeOverlay() }, Modifier.weight(1f))
+            SButton("Delete", { vm.deleteForever(ids) }, Modifier.weight(1f), primary = true, destructive = true)
+        }
+    }
+}
+
 /** "Sigil is locked. Only you can open it." Covers everything until presence is proven. */
 @Composable
 fun LockScreen(vm: SigilViewModel) {

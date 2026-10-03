@@ -44,13 +44,15 @@ class ScreenshotTest {
         rule.onRoot().captureRoboImage("build/outputs/roborazzi/$name.png")
     }
 
+    private fun com.sigil.app.data.model.Item.title() = (this as? LoginItem)?.title
+
     private fun id(predicate: (com.sigil.app.data.model.Item) -> Boolean) = vm.state.value.items.first(predicate).id
 
     @Test fun phoneScreens() {
         ready()
-        shot("01_everything")
-        act { showSidebar() }
         shot("02_library")
+        act { go(Section.ALL) }
+        shot("01_everything")
         act { go(Section.PASSWORDS) }
         shot("03_passwords")
         act { open(id { it is NoteItem && it.title == "Lake house weekend" }) }
@@ -69,6 +71,12 @@ class ScreenshotTest {
         shot("09_find")
         act { closeOverlay(); go(Section.PASSWORDS); openGenerator() }
         shot("10_generator")
+        act { closeOverlay(); startSelection(id { it.title() == "Google" }); toggleSelection(id { it.title() == "Airbnb" }) }
+        shot("15_multiselect")
+        act { endSelection(); go(Section.DELETED); select(vm.state.value.listItems().first().id) }
+        shot("16_deleted_item")
+        act { confirmDeleteForever(setOf(vm.state.value.selectedId!!)) }
+        shot("17_confirm_delete")
         act { closeOverlay(); lock() }
         shot("11_locked")
     }
@@ -76,6 +84,7 @@ class ScreenshotTest {
     @Test @Config(qualifiers = "w411dp-h891dp-notnight-xxhdpi")
     fun phoneLight() {
         ready()
+        act { go(Section.ALL) }
         shot("12_everything_light")
         act { select(id { it is NoteItem && it.title == "Project Aurora launch notes" }) }
         shot("13_note_light")

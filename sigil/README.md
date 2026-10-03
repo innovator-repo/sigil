@@ -27,6 +27,12 @@ with the same UI, sample content and behavior, renamed Sigil.
 - **Generator**: Strong, Memorable or PIN, with digits in blue and symbols in orange, plus a strength estimate.
 - **Check-up**: reused passwords, passwords found in a leak, and logins that could use
   verification codes. It shows one issue at a time, most important first, with the fix next to it.
+- **Multi-select** in every list: long-press a row (or tap the Select button) to pick several,
+  then Pin, Move to a Space, or Delete. In Recently Deleted: Recover, or Delete for good
+  (asks first). A single deleted item also has **Delete Now**.
+- **Haptics** for navigation, checklists, sealing, reveal and hide, copy, delete and lock, built from
+  Android's vibration primitives. They follow the system touch-feedback setting.
+- Opens on the **Library**.
 - **Adaptive layout**: one pane at a time on phones, list and detail with a slide-in sidebar on
   medium widths, and all three panes on tablets. Light and dark themes follow the system.
 

@@ -67,6 +67,8 @@ sealed interface Overlay {
     /** The password generator: a new login when [changeItemId] is null, else a new password for that login. */
     data class Generator(val changeItemId: String? = null) : Overlay
     data class TotpSetup(val itemId: String) : Overlay
+    /** "Delete forever?" for items already in Recently Deleted. */
+    data class ConfirmDelete(val ids: Set<String>) : Overlay
 }
 
 data class ToastMessage(
@@ -84,7 +86,8 @@ data class UiState(
     val items: List<Item> = emptyList(),
     val section: Section = Section.ALL,
     val selectedId: String? = null,
-    val pane: Pane = Pane.LIST,
+    /** Sigil opens on the Library. */
+    val pane: Pane = Pane.SIDEBAR,
     val sidebarOpen: Boolean = false,
     val checkup: CheckupResult = CheckupResult(emptyList(), 0, 0),
     val fixed: List<FixedEntry> = emptyList(),
@@ -97,7 +100,11 @@ data class UiState(
     val toast: ToastMessage? = null,
     /** A note that was just created and should take the keyboard. */
     val focusNoteId: String? = null,
+    /** Ids picked in multi-select; null when not selecting. */
+    val selection: Set<String>? = null,
 ) {
+    val selecting: Boolean get() = selection != null
+
     fun item(id: String?): Item? = id?.let { i -> items.firstOrNull { it.id == i } }
     val selected: Item? get() = item(selectedId)
     fun listItems(section: Section = this.section): List<Item> =
@@ -190,6 +197,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         buzz(Haptic.TICK)
         leaveNote()
         hideAll()
+        _state.update { s -> s.copy(selection = null) }
         _state.update { s ->
             if (section == Section.CHECKUP) {
                 s.copy(section = section, pane = Pane.DETAIL, sidebarOpen = false)
@@ -344,6 +352,144 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         toast("Recovered.", SigilIcon.Check)
     }
 
+    // ───────── Multi-select ─────────
+
+    fun startSelection(id: String) {
+        buzz(Haptic.CLICK)
+        _state.update { it.copy(selection = setOf(id)) }
+    }
+
+    fun toggleSelection(id: String) {
+        buzz(Haptic.TICK)
+        _state.update { s ->
+            val sel = s.selection ?: emptySet()
+            s.copy(selection = if (id in sel) sel - id else sel + id)
+        }
+    }
+
+    fun selectAll() {
+        buzz(Haptic.TICK)
+        _state.update { s ->
+            val all = s.listItems().mapTo(HashSet()) { it.id }
+            s.copy(selection = if (s.selection == all) emptySet() else all)
+        }
+    }
+
+    /** "Select" in the toolbar: selection mode with nothing picked yet. */
+    fun beginSelection() {
+        buzz(Haptic.TICK)
+        _state.update { it.copy(selection = emptySet()) }
+    }
+
+    fun endSelection() = _state.update { it.copy(selection = null) }
+
+    private fun selectedItems(): List<Item> {
+        val s = _state.value
+        val sel = s.selection ?: return emptyList()
+        return s.listItems().filter { it.id in sel }
+    }
+
+    /** Pins everything picked, or unpins it all if it's all pinned already. */
+    fun pinSelected() {
+        val items = selectedItems().ifEmpty { return }
+        val pin = items.any { !it.pinned }
+        saveJob?.cancel()
+        val updated = items.map { withPinned(it, pin) }
+        updated.forEach { override(it) }
+        write { updated.forEach { repo.save(it) } }
+        buzz(if (pin) Haptic.CLICK else Haptic.TICK)
+        endSelection()
+        toast(if (pin) "Pinned ${count(items.size)}." else "Unpinned ${count(items.size)}.", SigilIcon.Pin)
+    }
+
+    fun moveSelected(space: Space) {
+        val items = selectedItems().ifEmpty { return }
+        saveJob?.cancel()
+        val now = System.currentTimeMillis()
+        val updated = items.map { withSpace(it, space, now) }
+        updated.forEach { override(it) }
+        write { updated.forEach { repo.save(it) } }
+        buzz(Haptic.SUCCESS)
+        endSelection()
+        toast("Moved ${count(items.size)} to ${space.label}.", SigilIcon.Check)
+    }
+
+    fun deleteSelected() {
+        val items = selectedItems().filter { !it.isDeleted }.ifEmpty { return }
+        saveJob?.cancel()
+        hideAll()
+        val now = System.currentTimeMillis()
+        val deleted = items.map { withDeletedAt(it, now) }
+        deleted.forEach { override(it) }
+        write { deleted.forEach { repo.save(it) } }
+        val gone = items.mapTo(HashSet()) { it.id }
+        _state.update { s ->
+            s.copy(selection = null, selectedId = if (s.selectedId in gone) s.listItems().firstOrNull()?.id else s.selectedId)
+        }
+        buzz(Haptic.THUD)
+        toast("Moved ${count(items.size)} to Recently Deleted.", SigilIcon.Trash, "Undo") {
+            buzz(Haptic.TICK)
+            val restored = deleted.map { withDeletedAt(it, null) }
+            restored.forEach { override(it) }
+            write { restored.forEach { repo.save(it) } }
+        }
+    }
+
+    fun recoverSelected() {
+        val items = selectedItems().filter { it.isDeleted }.ifEmpty { return }
+        val restored = items.map { withDeletedAt(it, null) }
+        restored.forEach { override(it) }
+        write { restored.forEach { repo.save(it) } }
+        buzz(Haptic.SUCCESS)
+        endSelection()
+        toast("Recovered ${count(items.size)}.", SigilIcon.Check)
+    }
+
+    /** Asks before erasing items from Recently Deleted for good. */
+    fun confirmDeleteForever(ids: Set<String>) {
+        if (ids.isEmpty()) return
+        buzz(Haptic.NUDGE)
+        _state.update { it.copy(overlay = Overlay.ConfirmDelete(ids)) }
+    }
+
+    fun confirmDeleteSelected() = confirmDeleteForever(selectedItems().filter { it.isDeleted }.mapTo(HashSet()) { it.id })
+
+    fun deleteForever(ids: Set<String>) {
+        // Save the open note first, so the garbage pass below sees every chip it still uses.
+        flush()
+        val items = _state.value.items.filter { it.id in ids && it.isDeleted }
+        items.forEach {
+            overrides.remove(it.id)
+            removed.add(it.id)
+        }
+        publishItems()
+        write {
+            items.forEach { repo.hardDelete(it) }
+            repo.collectGarbage()
+        }
+        _state.update { s ->
+            s.copy(overlay = null, selection = null, selectedId = if (s.selectedId in ids) s.listItems().firstOrNull()?.id else s.selectedId, pane = if (s.selectedId in ids) Pane.LIST else s.pane)
+        }
+        buzz(Haptic.THUD)
+        toast(if (items.size == 1) "Deleted for good." else "Deleted ${items.size} items for good.", SigilIcon.Trash)
+    }
+
+    private fun count(n: Int) = if (n == 1) "1 item" else "$n items"
+
+    private fun withPinned(item: Item, pinned: Boolean): Item = when (item) {
+        is NoteItem -> item.copy(pinned = pinned)
+        is LoginItem -> item.copy(pinned = pinned)
+        is CardItem -> item.copy(pinned = pinned)
+        is WifiItem -> item.copy(pinned = pinned)
+    }
+
+    private fun withSpace(item: Item, space: Space, now: Long): Item = when (item) {
+        is NoteItem -> item.copy(space = space, updated = now)
+        is LoginItem -> item.copy(space = space, updated = now)
+        is CardItem -> item.copy(space = space, updated = now)
+        is WifiItem -> item.copy(space = space, updated = now)
+    }
+
     private fun withDeletedAt(item: Item, at: Long?): Item = when (item) {
         is NoteItem -> item.copy(deletedAt = at)
         is LoginItem -> item.copy(deletedAt = at)
@@ -432,7 +578,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         presenceUntil = 0
         buzz(Haptic.THUD)
         prefs.edit().putBoolean(SigilApplication.KEY_LOCKED, true).apply()
-        _state.update { it.copy(locked = true, overlay = null, sidebarOpen = false) }
+        _state.update { it.copy(locked = true, overlay = null, sidebarOpen = false, selection = null) }
     }
 
     fun unlocked() {

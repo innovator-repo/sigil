@@ -1,6 +1,20 @@
 package com.sigil.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.sigil.app.data.model.Space
+import com.sigil.app.ui.components.Hairline
+import com.sigil.app.ui.components.SIcon
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -86,8 +100,11 @@ fun ListPane(state: UiState, vm: SigilViewModel, mode: WindowMode, modifier: Mod
     val listState = rememberLazyListState()
     LaunchedEffect(section) { listState.scrollToItem(0) }
 
+    val selection = state.selection
     Column(modifier.background(c.paper).statusBarsPadding()) {
-        Row(
+        if (selection != null) {
+            SelectionHeader(state, vm, mode)
+        } else Row(
             Modifier.fillMaxWidth().padding(start = 8.dp, end = 6.dp, top = if (mode == WindowMode.COMPACT) 14.dp else 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -100,15 +117,16 @@ fun ListPane(state: UiState, vm: SigilViewModel, mode: WindowMode, modifier: Mod
                 )
             }
             Spacer(Modifier.weight(1f))
+            if (entries.isNotEmpty()) ToolButton(SigilIcon.Checklist, "Select", { vm.beginSelection() })
             ToolButton(SigilIcon.Search, "Find or keep", { vm.openFind() })
             if (section != Section.DELETED) {
                 ToolButton(SigilIcon.Key, "New password", { vm.openGenerator() })
                 ToolButton(SigilIcon.Compose, "New note", { vm.newNote() })
             }
         }
-        if (mode != WindowMode.EXPANDED) {
+        if (mode != WindowMode.EXPANDED || selection != null) {
             Text(
-                section.label, style = SigilType.largeTitle, color = c.label, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                if (selection != null) selectedTitle(selection.size) else section.label, style = SigilType.largeTitle, color = c.label, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 2.dp),
             )
         }
@@ -124,6 +142,7 @@ fun ListPane(state: UiState, vm: SigilViewModel, mode: WindowMode, modifier: Mod
 
         val nav = WindowInsets.navigationBars.asPaddingValues()
         LazyColumn(
+            modifier = Modifier.weight(1f),
             state = listState,
             contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 12.dp + nav.calculateBottomPadding()),
         ) {
@@ -135,20 +154,112 @@ fun ListPane(state: UiState, vm: SigilViewModel, mode: WindowMode, modifier: Mod
                         val prevSelected = (entries.getOrNull(index - 1) as? Entry.Row)?.item?.id == state.selectedId
                         ItemRow(
                             item = e.item,
-                            selected = e.item.id == state.selectedId,
-                            divider = !e.first && !prevSelected,
+                            selected = selection == null && e.item.id == state.selectedId,
+                            divider = !e.first && (selection != null || !prevSelected),
                             flagged = e.item.id in flagged,
-                            onClick = { vm.select(e.item.id) },
+                            picked = selection?.let { e.item.id in it },
+                            onClick = { if (selection != null) vm.toggleSelection(e.item.id) else vm.select(e.item.id) },
+                            onLongClick = { if (selection == null) vm.startSelection(e.item.id) else vm.toggleSelection(e.item.id) },
                         )
                     }
                 }
+            }
+        }
+        if (selection != null) SelectionBar(state, vm)
+    }
+}
+
+private fun selectedTitle(n: Int) = when (n) {
+    0 -> "Select Items"
+    1 -> "1 Selected"
+    else -> "$n Selected"
+}
+
+@Composable
+private fun SelectionHeader(state: UiState, vm: SigilViewModel, mode: WindowMode) {
+    val c = Sigil.colors
+    val all = state.listItems().size
+    Row(
+        Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = if (mode == WindowMode.COMPACT) 14.dp else 8.dp).height(44.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TextButton("Cancel") { vm.endSelection() }
+        Spacer(Modifier.weight(1f))
+        TextButton(if (state.selection?.size == all && all > 0) "Deselect All" else "Select All") { vm.selectAll() }
+    }
+}
+
+@Composable
+private fun TextButton(label: String, color: Color = Sigil.colors.tint, enabled: Boolean = true, onClick: () -> Unit) {
+    Text(
+        label, style = SigilType.back, color = if (enabled) color else color.copy(alpha = 0.35f),
+        modifier = Modifier.clip(RoundedCornerShape(8.dp)).tap(enabled = enabled, onClick = onClick).padding(horizontal = 8.dp, vertical = 8.dp),
+    )
+}
+
+/** What can be done to everything picked: pin, move to a Space, delete - or recover / delete for good in Recently Deleted. */
+@Composable
+private fun SelectionBar(state: UiState, vm: SigilViewModel) {
+    val c = Sigil.colors
+    val picked = state.listItems().filter { it.id in (state.selection ?: emptySet()) }
+    val any = picked.isNotEmpty()
+    Column(Modifier.fillMaxWidth().background(c.paper).navigationBarsPadding()) {
+        Hairline()
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            if (state.section == Section.DELETED) {
+                BarAction(SigilIcon.Refresh, "Recover", c.tint, any) { vm.recoverSelected() }
+                BarAction(SigilIcon.Trash, "Delete", c.critical, any) { vm.confirmDeleteSelected() }
+            } else {
+                val allPinned = any && picked.all { it.pinned }
+                BarAction(if (allPinned) SigilIcon.Unpin else SigilIcon.Pin, if (allPinned) "Unpin" else "Pin", c.tint, any) { vm.pinSelected() }
+                Box {
+                    var open by remember { mutableStateOf(false) }
+                    BarAction(SigilIcon.People, "Move", c.tint, any) { open = true }
+                    DropdownMenu(open, { open = false }, containerColor = c.glassStrong) {
+                        for (space in Space.entries) {
+                            DropdownMenuItem(
+                                text = { Text(space.label, style = SigilType.body, color = c.label) },
+                                onClick = {
+                                    open = false
+                                    vm.moveSelected(space)
+                                },
+                            )
+                        }
+                    }
+                }
+                BarAction(SigilIcon.Trash, "Delete", c.critical, any) { vm.deleteSelected() }
             }
         }
     }
 }
 
 @Composable
-private fun ItemRow(item: Item, selected: Boolean, divider: Boolean, flagged: Boolean, onClick: () -> Unit) {
+private fun BarAction(icon: SigilIcon, label: String, color: Color, enabled: Boolean, onClick: () -> Unit) {
+    val tint = if (enabled) color else color.copy(alpha = 0.35f)
+    Column(
+        Modifier.clip(RoundedCornerShape(10.dp)).tap(enabled = enabled, onClick = onClick).padding(horizontal = 18.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        SIcon(icon, tint, 21.dp)
+        Text(label, style = SigilType.meta, color = tint, modifier = Modifier.padding(top = 2.dp))
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ItemRow(
+    item: Item,
+    selected: Boolean,
+    divider: Boolean,
+    flagged: Boolean,
+    picked: Boolean?,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
     val c = Sigil.colors
     val sep = c.sep
     val onSel = c.onColor
@@ -160,12 +271,21 @@ private fun ItemRow(item: Item, selected: Boolean, divider: Boolean, flagged: Bo
             }
             .clip(RoundedCornerShape(10.dp))
             .background(if (selected) c.sel else Color.Transparent)
-            .tap(onClick = onClick)
-            .semantics { this.selected = selected }
+            .background(if (picked == true) c.tintSoft else Color.Transparent)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .semantics { this.selected = selected || picked == true }
             .padding(horizontal = 8.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        if (picked != null) {
+            Box(
+                Modifier.size(22.dp).clip(CircleShape)
+                    .background(if (picked) c.tint else Color.Transparent)
+                    .border(1.5.dp, if (picked) c.tint else c.label3, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) { if (picked) SIcon(SigilIcon.Check, c.onColor, 14.dp, stroke = 2.6f) }
+        }
         if (selected && item is com.sigil.app.data.model.NoteItem) {
             Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
                 com.sigil.app.ui.components.SIcon(SigilIcon.Note, onSel, 17.dp)

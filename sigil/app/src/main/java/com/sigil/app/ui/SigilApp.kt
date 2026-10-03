@@ -30,6 +30,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import com.sigil.app.ui.components.tapQuiet
+import com.sigil.app.ui.overlays.ConfirmDeleteSheet
 import com.sigil.app.ui.overlays.FindBar
 import com.sigil.app.ui.overlays.GeneratorSheet
 import com.sigil.app.ui.overlays.LockScreen
@@ -67,9 +68,10 @@ fun SigilApp(state: UiState, vm: SigilViewModel) {
             else -> WindowMode.EXPANDED
         }
 
-        BackHandler(enabled = !state.locked && (state.overlay != null || state.sidebarOpen || (mode == WindowMode.COMPACT && state.pane != Pane.SIDEBAR))) {
+        BackHandler(enabled = !state.locked && (state.overlay != null || state.sidebarOpen || state.selecting || (mode == WindowMode.COMPACT && state.pane != Pane.SIDEBAR))) {
             when {
                 state.overlay != null -> vm.closeOverlay()
+                state.selecting -> vm.endSelection()
                 state.sidebarOpen -> vm.setSidebarOpen(false)
                 state.pane == Pane.DETAIL && state.section == Section.CHECKUP -> vm.showSidebar()
                 state.pane == Pane.DETAIL -> vm.showList()
@@ -119,6 +121,7 @@ fun SigilApp(state: UiState, vm: SigilViewModel) {
             is Overlay.Find -> FindBar(o.initial, state, vm)
             is Overlay.Generator -> GeneratorSheet(o.changeItemId?.let { state.item(it) }, state, vm)
             is Overlay.TotpSetup -> state.item(o.itemId)?.let { TotpSetupSheet(it, vm) }
+            is Overlay.ConfirmDelete -> ConfirmDeleteSheet(o.ids, state, vm)
             null -> {}
         }
 

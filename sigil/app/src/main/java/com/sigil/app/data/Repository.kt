@@ -125,7 +125,7 @@ class Repository(
 
     /**
      * Deletes ciphertext no item points at any more: chips removed from a note, items purged
-     * from Recently Deleted. Run at startup, never mid-edit, so an in-flight chip is never lost.
+     * from Recently Deleted. Run at startup and after deleting for good, once the open note is saved, so a live chip is never lost.
      */
     suspend fun collectGarbage() {
         val used = HashSet<String>()

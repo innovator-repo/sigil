@@ -152,12 +152,12 @@ fun Pill(text: String, onClick: () -> Unit, icon: SigilIcon? = null, color: Colo
 
 /** Rectangular button (`.btn` / `.btn.primary`). */
 @Composable
-fun SButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, primary: Boolean = false, enabled: Boolean = true) {
+fun SButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, primary: Boolean = false, enabled: Boolean = true, destructive: Boolean = false) {
     val c = Sigil.colors
     Box(
         modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(if (primary) c.tint.copy(alpha = if (enabled) 1f else 0.4f) else c.fill)
+            .background(if (primary) (if (destructive) c.critical else c.tint).copy(alpha = if (enabled) 1f else 0.4f) else c.fill)
             .tap(enabled = enabled, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 9.dp),
         contentAlignment = Alignment.Center,
