@@ -24,7 +24,7 @@ with the same UI, sample content and behavior, renamed Sigil.
   verification codes (RFC 6238) and offer *Change Password…*.
 - **Find or keep** (search button, or Ctrl/⌘+K): one field that searches every item. If
   nothing matches, Return keeps what you typed as a new note. Sealed values are never searched.
-- **Generator**: Strong, Memorable or PIN, with digits in blue and symbols in orange, plus a strength estimate.
+- **Generator**: Strong, Memorable or PIN, or **Mine** to save a password you already have (typed or pasted, hidden until you tap Show), with digits in blue and symbols in orange, plus a strength estimate.
 - **Check-up**: reused passwords, passwords found in a leak, and logins that could use
   verification codes. It shows one issue at a time, most important first, with the fix next to it.
 - **Multi-select** in every list: long-press a row (or tap the Select button) to pick several,

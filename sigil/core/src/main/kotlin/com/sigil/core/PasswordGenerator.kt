@@ -112,6 +112,29 @@ object PasswordGenerator {
         return Strength(label, time)
     }
 
+    /**
+     * A rough entropy estimate for a password someone typed: length times the size of the
+     * character pool it draws from, cut down for the shapes attackers try first (one repeated
+     * character, runs like "1234" or "abcd", a word followed by digits).
+     */
+    fun estimateBits(value: String): Double {
+        if (value.isEmpty()) return 0.0
+        var pool = 0
+        if (value.any { it in 'a'..'z' }) pool += 26
+        if (value.any { it in 'A'..'Z' }) pool += 26
+        if (value.any { it.isDigit() }) pool += 10
+        if (value.any { !it.isLetterOrDigit() }) pool += 33
+        val distinct = value.toSet().size
+        if (distinct == 1) return log2(pool.toDouble())
+        var bits = value.length * log2(pool.toDouble())
+        val lower = value.lowercase()
+        val runs = (1 until lower.length).count { lower[it] - lower[it - 1] == 1 || lower[it] - lower[it - 1] == -1 }
+        bits -= runs * log2(pool.toDouble()) * 0.75
+        if (Regex("^[A-Za-z]+[0-9!]{1,6}$").matches(value)) bits = minOf(bits, 34.0)
+        bits = minOf(bits, distinct * 6.5 + 8)
+        return bits.coerceAtLeast(log2(pool.toDouble()))
+    }
+
     /** Classifies each character of a generated value for digit/symbol coloring, matching `.pw .d` / `.pw .s`. */
     fun colorize(value: String): List<ColoredChar> = value.map { c ->
         val cls = when {

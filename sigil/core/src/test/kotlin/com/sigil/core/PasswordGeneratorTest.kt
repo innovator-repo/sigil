@@ -70,4 +70,14 @@ class PasswordGeneratorTest {
     private fun assertApprox(expected: Double, actual: Double, tolerance: Double = 0.001) {
         assertTrue(kotlin.math.abs(expected - actual) <= tolerance, "expected $expected, got $actual")
     }
+
+    @Test fun estimateRanksTypedPasswords() {
+        val weak = PasswordGenerator.estimateBits("Summer2019!")
+        val strong = PasswordGenerator.estimateBits("hoqfaz-Nemty4-vuxbef")
+        assertTrue(weak < 40, "word + year should read as guessable, was $weak")
+        assertTrue(strong >= 60, "generated-style password should read as strong, was $strong")
+        assertTrue(PasswordGenerator.estimateBits("aaaaaaaaaaaa") < 10)
+        assertTrue(PasswordGenerator.estimateBits("123456789") < 28)
+        assertEquals(0.0, PasswordGenerator.estimateBits(""))
+    }
 }

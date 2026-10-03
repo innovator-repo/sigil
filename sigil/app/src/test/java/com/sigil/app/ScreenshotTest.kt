@@ -1,7 +1,11 @@
 package com.sigil.app
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -71,6 +75,10 @@ class ScreenshotTest {
         shot("09_find")
         act { closeOverlay(); go(Section.PASSWORDS); openGenerator() }
         shot("10_generator")
+        rule.onNodeWithText("Mine").performClick()
+        rule.onAllNodes(hasSetTextAction())[2].performTextInput("Summer2019!")
+        rule.waitForIdle()
+        shot("18_own_password")
         act { closeOverlay(); startSelection(id { it.title() == "Google" }); toggleSelection(id { it.title() == "Airbnb" }) }
         shot("15_multiselect")
         act { endSelection(); go(Section.DELETED); select(vm.state.value.listItems().first().id) }

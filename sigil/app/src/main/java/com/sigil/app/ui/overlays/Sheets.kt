@@ -30,6 +30,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -117,15 +125,29 @@ private val NOTES = mapOf(
 fun GeneratorSheet(changing: Item?, state: UiState, vm: SigilViewModel) {
     val c = Sigil.colors
     var style by remember { mutableStateOf(GeneratorStyle.STRONG) }
+    var mine by remember { mutableStateOf(false) }
     var words by remember { mutableIntStateOf(5) }
     var seed by remember { mutableIntStateOf(0) }
     val generated = remember(style, words, seed) { PasswordGenerator.generate(style, words) }
-    val strength = PasswordGenerator.describe(generated.bits)
+    var own by remember { mutableStateOf("") }
+    var showOwn by remember { mutableStateOf(false) }
+    val ownFocus = remember { FocusRequester() }
+    val value = if (mine) own else generated.value
+    val bits = if (mine) PasswordGenerator.estimateBits(own) else generated.bits
+    val strength = PasswordGenerator.describe(bits)
     var site by remember { mutableStateOf("") }
     var user by remember { mutableStateOf("") }
 
+    LaunchedEffect(mine) { if (mine) ownFocus.requestFocus() }
+
     Sheet(onDismiss = { vm.closeOverlay() }) {
-        SheetTitle(if (changing == null) "New Password" else "New Password for ${changing.titleText()}")
+        SheetTitle(
+            when {
+                changing == null && mine -> "Save a Password"
+                changing == null -> "New Password"
+                else -> "New Password for ${changing.titleText()}"
+            },
+        )
         if (changing == null) {
             Column(Modifier.fillMaxWidth().padding(bottom = 14.dp).clip(RoundedCornerShape(10.dp)).background(c.fill2)) {
                 InputRow("Website", site, { site = it }, "example.com", KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false))
@@ -134,48 +156,89 @@ fun GeneratorSheet(changing: Item?, state: UiState, vm: SigilViewModel) {
             }
         }
         Row(Modifier.fillMaxWidth().padding(bottom = 16.dp).clip(RoundedCornerShape(9.dp)).background(c.fill).padding(2.dp)) {
-            for ((s, label) in listOf(GeneratorStyle.STRONG to "Strong", GeneratorStyle.MEMORABLE to "Memorable", GeneratorStyle.PIN to "PIN")) {
-                val on = s == style
+            val options = listOf(GeneratorStyle.STRONG to "Strong", GeneratorStyle.MEMORABLE to "Memorable", GeneratorStyle.PIN to "PIN", null to "Mine")
+            for ((s, label) in options) {
+                val on = if (s == null) mine else !mine && s == style
                 Box(
                     Modifier.weight(1f)
                         .then(if (on) Modifier.shadow(2.dp, RoundedCornerShape(7.dp)) else Modifier)
                         .clip(RoundedCornerShape(7.dp)).background(if (on) c.paper else Color.Transparent)
-                        .tap { if (style != s) vm.buzz(Haptic.TICK); style = s }.padding(vertical = 7.dp),
+                        .tap {
+                            if (!on) vm.buzz(Haptic.TICK)
+                            if (s == null) mine = true else { mine = false; style = s }
+                        }.padding(vertical = 7.dp),
                     contentAlignment = Alignment.Center,
                 ) { Text(label, style = SigilType.meta, fontWeight = FontWeight.Medium, color = c.label) }
             }
         }
-        Box(
-            Modifier.fillMaxWidth().heightIn(min = 58.dp).clip(RoundedCornerShape(12.dp)).background(c.paper)
-                .border(0.5.dp, c.sep, RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 14.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(colorizedPassword(generated.value), style = SigilType.generated, color = c.label, textAlign = TextAlign.Center)
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).clip(CircleShape).background(if (generated.bits < 40) c.caution else c.good))
-            Spacer(Modifier.width(8.dp))
-            Text(
-                "${strength.label} · about ${Math.round(generated.bits)} bits · would take ${strength.timeToGuess} to guess",
-                style = SigilType.meta, color = c.label2, textAlign = TextAlign.Center,
-            )
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-            if (style == GeneratorStyle.MEMORABLE) {
-                Row(Modifier.clip(RoundedCornerShape(8.dp)).background(c.fill).padding(2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Stepper("−", "Fewer words") { vm.buzz(if (words > 3) Haptic.TICK else Haptic.REJECT); words = (words - 1).coerceAtLeast(3) }
-                    Text("$words words", style = SigilType.meta, color = c.label, textAlign = TextAlign.Center, modifier = Modifier.width(64.dp))
-                    Stepper("+", "More words") { vm.buzz(if (words < 8) Haptic.TICK else Haptic.REJECT); words = (words + 1).coerceAtMost(8) }
+        if (mine) {
+            // The password they already have: typed or pasted, hidden by default like any password field.
+            val colored = colorizedPassword(own)
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 58.dp).clip(RoundedCornerShape(12.dp)).background(c.paper)
+                    .border(0.5.dp, c.sep, RoundedCornerShape(12.dp)).padding(start = 14.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.weight(1f)) {
+                    if (own.isEmpty()) Text("Type or paste it", style = SigilType.generated.copy(fontSize = 18.sp), color = c.label3, maxLines = 1)
+                    BasicTextField(
+                        value = own,
+                        onValueChange = { own = it.replace("\n", "") },
+                        singleLine = true,
+                        textStyle = SigilType.generated.copy(fontSize = 18.sp, color = c.label),
+                        cursorBrush = SolidColor(c.tint),
+                        visualTransformation = if (showOwn) VisualTransformation { TransformedText(colored, OffsetMapping.Identity) } else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+                        modifier = Modifier.fillMaxWidth().focusRequester(ownFocus),
+                    )
                 }
+                Pill(if (showOwn) "Hide" else "Show", { vm.buzz(if (showOwn) Haptic.HIDE else Haptic.REVEAL); showOwn = !showOwn }, SigilIcon.Lock, c.seal)
             }
-            Pill("Another One", { vm.buzz(Haptic.CLICK); seed++ }, SigilIcon.Refresh)
+        } else {
+            Box(
+                Modifier.fillMaxWidth().heightIn(min = 58.dp).clip(RoundedCornerShape(12.dp)).background(c.paper)
+                    .border(0.5.dp, c.sep, RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 14.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(colorizedPassword(generated.value), style = SigilType.generated, color = c.label, textAlign = TextAlign.Center)
+            }
         }
-        Text(NOTES.getValue(style), style = SigilType.meta, color = c.label2, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp))
+        if (value.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(if (bits < 40) c.caution else c.good))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "${strength.label} · about ${Math.round(bits)} bits · " +
+                        if (strength.timeToGuess == "instantly") "guessed instantly" else "would take ${strength.timeToGuess} to guess",
+                    style = SigilType.meta, color = c.label2, textAlign = TextAlign.Center,
+                )
+            }
+        }
+        if (!mine) {
+            Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+                if (style == GeneratorStyle.MEMORABLE) {
+                    Row(Modifier.clip(RoundedCornerShape(8.dp)).background(c.fill).padding(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Stepper("−", "Fewer words") { vm.buzz(if (words > 3) Haptic.TICK else Haptic.REJECT); words = (words - 1).coerceAtLeast(3) }
+                        Text("$words words", style = SigilType.meta, color = c.label, textAlign = TextAlign.Center, modifier = Modifier.width(64.dp))
+                        Stepper("+", "More words") { vm.buzz(if (words < 8) Haptic.TICK else Haptic.REJECT); words = (words + 1).coerceAtMost(8) }
+                    }
+                }
+                Pill("Another One", { vm.buzz(Haptic.CLICK); seed++ }, SigilIcon.Refresh)
+            }
+        }
+        Text(
+            when {
+                !mine -> NOTES.getValue(style)
+                own.isNotEmpty() && bits < 40 -> "This one could be guessed. Strong makes one that can't, and Sigil keeps it for you."
+                else -> "The password you already use. It's sealed like any other, and Check-up will say if it's reused."
+            },
+            style = SigilType.meta, color = c.label2, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp),
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             SButton("Cancel", { vm.closeOverlay() }, Modifier.weight(1f))
-            SButton("Use Password", {
-                if (changing == null) vm.createLogin(site, user, generated.value) else vm.changePassword(changing.id, generated.value)
-            }, Modifier.weight(1f), primary = true)
+            SButton(if (mine) "Save Password" else "Use Password", {
+                if (changing == null) vm.createLogin(site, user, value) else vm.changePassword(changing.id, value)
+            }, Modifier.weight(1f), primary = true, enabled = value.isNotEmpty())
         }
     }
 }
