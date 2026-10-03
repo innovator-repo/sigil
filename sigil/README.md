@@ -32,7 +32,7 @@ with the same UI, sample content and behavior, renamed Sigil.
   (asks first). A single deleted item also has **Delete Now**.
 - **Haptics** for navigation, checklists, sealing, reveal and hide, copy, delete and lock, built from
   Android's vibration primitives. They follow the system touch-feedback setting.
-- Opens on the **Library**.
+- Opens on **Everything**, newest first. Come back within 5 minutes and it resumes on the item you had open.
 - **Adaptive layout**: one pane at a time on phones, list and detail with a slide-in sidebar on
   medium widths, and all three panes on tablets. Light and dark themes follow the system.
 

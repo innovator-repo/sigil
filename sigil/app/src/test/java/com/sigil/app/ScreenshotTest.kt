@@ -50,9 +50,9 @@ class ScreenshotTest {
 
     @Test fun phoneScreens() {
         ready()
-        shot("02_library")
-        act { go(Section.ALL) }
         shot("01_everything")
+        act { showSidebar() }
+        shot("02_library")
         act { go(Section.PASSWORDS) }
         shot("03_passwords")
         act { open(id { it is NoteItem && it.title == "Lake house weekend" }) }
@@ -84,7 +84,6 @@ class ScreenshotTest {
     @Test @Config(qualifiers = "w411dp-h891dp-notnight-xxhdpi")
     fun phoneLight() {
         ready()
-        act { go(Section.ALL) }
         shot("12_everything_light")
         act { select(id { it is NoteItem && it.title == "Project Aurora launch notes" }) }
         shot("13_note_light")

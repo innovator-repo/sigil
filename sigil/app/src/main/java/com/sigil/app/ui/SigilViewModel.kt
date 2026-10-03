@@ -86,8 +86,8 @@ data class UiState(
     val items: List<Item> = emptyList(),
     val section: Section = Section.ALL,
     val selectedId: String? = null,
-    /** Sigil opens on the Library. */
-    val pane: Pane = Pane.SIDEBAR,
+    /** Sigil opens on Everything (or resumes where you were, see [SigilViewModel.restorePlace]). */
+    val pane: Pane = Pane.LIST,
     val sidebarOpen: Boolean = false,
     val checkup: CheckupResult = CheckupResult(emptyList(), 0, 0),
     val fixed: List<FixedEntry> = emptyList(),
@@ -163,6 +163,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
                 publishItems()
                 if (!_state.value.ready) {
                     _state.update { s -> s.copy(ready = true, selectedId = s.selectedId ?: s.listItems().firstOrNull()?.id) }
+                    restorePlace()
                 }
                 val logins = list.filterIsInstance<LoginItem>()
                 if (logins != lastLogins) {
@@ -592,6 +593,37 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
     fun onBackgrounded() {
         flush()
         hideAll()
+        savePlace()
+    }
+
+    /**
+     * Where you were when you left. Coming back within [RESUME_MS] (from another app, or after
+     * Android reclaimed the process) puts you back on the same item; any later, Sigil opens fresh
+     * on Everything, the newest things first.
+     */
+    private fun savePlace() {
+        val s = _state.value
+        prefs.edit()
+            .putString(KEY_PLACE_SECTION, s.section.name)
+            .putString(KEY_PLACE_ITEM, s.selectedId)
+            .putString(KEY_PLACE_PANE, s.pane.name)
+            .putLong(KEY_PLACE_AT, System.currentTimeMillis())
+            .apply()
+    }
+
+    private fun restorePlace() {
+        val at = prefs.getLong(KEY_PLACE_AT, 0L)
+        if (System.currentTimeMillis() - at > RESUME_MS) return
+        val section = runCatching { Section.valueOf(prefs.getString(KEY_PLACE_SECTION, null)!!) }.getOrNull() ?: return
+        val pane = runCatching { Pane.valueOf(prefs.getString(KEY_PLACE_PANE, null)!!) }.getOrNull() ?: return
+        val item = current(prefs.getString(KEY_PLACE_ITEM, null))
+        _state.update { s ->
+            when {
+                section == Section.CHECKUP -> s.copy(section = section, pane = pane)
+                item != null && section.matches(item) -> s.copy(section = section, selectedId = item.id, pane = pane)
+                else -> s.copy(section = section, pane = if (pane == Pane.DETAIL) Pane.LIST else pane, selectedId = s.listItems(section).firstOrNull()?.id)
+            }
+        }
     }
 
     // ───────── Overlays ─────────
@@ -699,6 +731,11 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
 
     companion object {
         const val REVEAL_MS = 30_000L
+        const val RESUME_MS = 5 * 60_000L
+        private const val KEY_PLACE_SECTION = "place_section"
+        private const val KEY_PLACE_ITEM = "place_item"
+        private const val KEY_PLACE_PANE = "place_pane"
+        private const val KEY_PLACE_AT = "place_at"
         const val PRESENCE_MS = 60_000L
         private const val SAVE_DELAY_MS = 300L
     }
