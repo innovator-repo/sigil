@@ -7,6 +7,7 @@ import com.sigil.app.data.model.NoteItem
 import com.sigil.app.data.model.Segment
 import com.sigil.app.data.model.Space
 import com.sigil.app.data.model.WifiItem
+import com.sigil.app.security.SealedSecret
 import com.sigil.app.security.SecretVault
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
@@ -43,6 +44,10 @@ class Repository(
         db.secretDao().upsert(SecretEntity(id, sealed.ciphertext, sealed.iv))
         return id
     }
+
+    /** Length of a secret without decrypting it (AES-GCM adds a 16-byte tag), for sizing the mask. */
+    suspend fun secretLength(secretId: String): Int =
+        db.secretDao().get(secretId)?.let { it.ciphertext.size - 16 } ?: 0
 
     suspend fun revealValue(secretId: String): String {
         val entity = db.secretDao().get(secretId) ?: return ""

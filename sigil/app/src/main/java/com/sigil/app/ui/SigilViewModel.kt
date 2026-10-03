@@ -394,6 +394,8 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun secretValue(secretId: String): String = repo.revealValue(secretId)
 
+    suspend fun secretLength(secretId: String): Int = repo.secretLength(secretId)
+
     // ───────── Lock ─────────
 
     fun lock() {

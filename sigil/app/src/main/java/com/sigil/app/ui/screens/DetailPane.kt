@@ -290,7 +290,7 @@ private fun NotePage(note: NoteItem, state: UiState, vm: SigilViewModel, mode: W
             }
 
             val s = suggestion
-            AnimatedVisibility(
+            androidx.compose.animation.AnimatedVisibility(
                 visible = s != null,
                 enter = fadeIn() + slideInVertically { it / 3 },
                 exit = fadeOut(),
@@ -320,6 +320,3 @@ private fun NotePage(note: NoteItem, state: UiState, vm: SigilViewModel, mode: W
         }
     }
 }
-
-@Composable
-fun isCheckupSection(state: UiState) = state.section == Section.CHECKUP
