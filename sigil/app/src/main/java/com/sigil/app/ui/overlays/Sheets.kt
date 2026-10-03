@@ -235,7 +235,8 @@ fun LockScreen(vm: SigilViewModel) {
     val c = Sigil.colors
     val presence = LocalPresence.current
     Box(
-        Modifier.fillMaxSize().background(c.paper.copy(alpha = if (android.os.Build.VERSION.SDK_INT >= 31) 0.55f else 1f)).tapQuiet {},
+        // Mostly opaque even where the content behind is blurred: the lock must hide things on its own.
+        Modifier.fillMaxSize().background(c.paper.copy(alpha = if (android.os.Build.VERSION.SDK_INT >= 31) 0.9f else 1f)).tapQuiet {},
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {

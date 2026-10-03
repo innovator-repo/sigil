@@ -8,6 +8,15 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
+/** Encrypts and decrypts secret values. [KeystoreVault] is the only real implementation. */
+interface SecretVault {
+    /** Encrypts [plaintext], returning ciphertext and the IV needed to decrypt it. */
+    fun seal(plaintext: String): SealedSecret
+
+    /** Decrypts a value sealed with [seal]. Only ever called right before a reveal/copy/compare. */
+    fun open(sealed: SealedSecret): String
+}
+
 /**
  * Encrypts every secret value (passwords, card numbers, TOTP seeds, PINs...) with an
  * AES-256-GCM key that lives only in the Android Keystore and never leaves it - Sigil
@@ -15,7 +24,7 @@ import javax.crypto.spec.GCMParameterSpec
  * Only ciphertext + IV are ever written to the Room database; plaintext exists in memory
  * only for as long as something is actively revealed on screen.
  */
-class SecretVault {
+class KeystoreVault : SecretVault {
     private val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
 
     private fun getOrCreateKey(): SecretKey {
@@ -33,16 +42,14 @@ class SecretVault {
         return generator.generateKey()
     }
 
-    /** Encrypts [plaintext], returning ciphertext and the IV GCM needs to decrypt it. */
-    fun seal(plaintext: String): SealedSecret {
+    override fun seal(plaintext: String): SealedSecret {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
         val ciphertext = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
         return SealedSecret(ciphertext, cipher.iv)
     }
 
-    /** Decrypts a value sealed with [seal]. Only ever called right before a reveal/copy/compare. */
-    fun open(sealed: SealedSecret): String {
+    override fun open(sealed: SealedSecret): String {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(GCM_TAG_BITS, sealed.iv))
         return String(cipher.doFinal(sealed.ciphertext), Charsets.UTF_8)

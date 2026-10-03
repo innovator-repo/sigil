@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.sigil.app.data.Repository
 import com.sigil.app.data.SigilDatabase
+import com.sigil.app.security.KeystoreVault
 import com.sigil.app.security.SecretVault
 import com.sigil.app.security.SensitiveClipboard
 import kotlinx.coroutines.CoroutineScope
@@ -13,11 +14,14 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-class SigilApplication : Application() {
+open class SigilApplication : Application() {
     /** Outlives any screen, for work that must finish even if the activity goes away (clipboard clearing). */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    val repository: Repository by lazy { Repository(SigilDatabase.get(this), SecretVault()) }
+    val repository: Repository by lazy { Repository(SigilDatabase.get(this), createVault()) }
+
+    /** Overridden only by tests, which run where the Android Keystore doesn't exist. */
+    protected open fun createVault(): SecretVault = KeystoreVault()
     val clipboard: SensitiveClipboard by lazy { SensitiveClipboard(this, appScope) }
     val prefs: SharedPreferences by lazy { getSharedPreferences("sigil", Context.MODE_PRIVATE) }
 
