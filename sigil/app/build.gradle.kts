@@ -20,11 +20,32 @@ android {
         versionName = "1.0"
     }
 
+    /**
+     * Release builds are signed with Sigil's own key when one is available, so an update
+     * installs over the copy already on the phone. Nothing about the key is kept in the
+     * repository: point SIGIL_KEYSTORE at the keystore file and give its password in
+     * SIGIL_KEYSTORE_PASSWORD (and SIGIL_KEY_ALIAS, if it isn't "sigil"). Without those the
+     * release build is simply unsigned, and `apksigner` can sign it afterwards.
+     */
+    val keystorePath = System.getenv("SIGIL_KEYSTORE")
+    val keystorePassword = System.getenv("SIGIL_KEYSTORE_PASSWORD")
+    if (!keystorePath.isNullOrBlank() && !keystorePassword.isNullOrBlank()) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = keystorePassword
+                keyAlias = System.getenv("SIGIL_KEY_ALIAS") ?: "sigil"
+                keyPassword = System.getenv("SIGIL_KEY_PASSWORD") ?: keystorePassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 

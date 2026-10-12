@@ -5,3 +5,7 @@ local.properties
 *.iml
 .kotlin/
 captures/
+# The release signing key and its password stay out of the repository.
+*.jks
+*.keystore
+keystore.properties
