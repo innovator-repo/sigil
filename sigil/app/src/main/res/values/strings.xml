@@ -3,4 +3,10 @@
     <string name="app_name">Sigil</string>
     <string name="find_or_keep">Find or keep</string>
     <string name="tagline">Remember everything. Memorize nothing.</string>
+    <string name="autofill_service_label">Sigil</string>
+    <string name="autofill_service_summary">Fill the logins you keep in Sigil, after a fingerprint check</string>
+    <string name="autofill_unlock_generic">Unlock to fill this login</string>
+    <string name="autofill_unlock_for">Unlock to fill %1$s</string>
+    <string name="autofill_nothing_to_save">No password to save</string>
+    <string name="autofill_could_not_save">Sigil could not save this login</string>
 </resources>

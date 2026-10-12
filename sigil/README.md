@@ -28,6 +28,11 @@ with the same UI, sample content and behavior, renamed Sigil.
   Digital Signature (eMudhra challenge code and token password), Software License, Lock & PIN, and Other.
   Every item can have extra fields, each plain or sealed, and notes. Everything can be edited later
   with the **Edit** button, which asks for presence first.
+- **Fills your logins in any app or browser**: turn Sigil on in Settings → Passwords & accounts →
+  autofill service, and a tap on a sign-in field offers the logins Sigil has for that site, matched
+  by its domain, so a login saved for `google.com` shows up on `accounts.google.com`. Choosing one
+  asks for your fingerprint before anything is filled, and *Choose from Sigil* opens the full list
+  when nothing matches. When you sign in somewhere new, Android's own "Save password?" bar keeps it.
 - **Find or keep** (search button, or Ctrl/⌘+K): one field that searches every item. If
   nothing matches, Return keeps what you typed as a new note. Sealed values are never searched.
 - **Generator**: Strong, Memorable or PIN, or **Mine** to save a password you already have (typed or pasted, hidden until you tap Show), with digits in blue and symbols in orange, plus a strength estimate.
@@ -52,6 +57,10 @@ with the same UI, sample content and behavior, renamed Sigil.
   screen recordings and the app switcher. Leaving the app hides everything revealed.
 - Backup and device transfer are disabled; the Keystore key can't leave the device anyway.
 - Sigil has no network permission. Nothing leaves the phone.
+- Autofill rows carry no values: each one is an empty dataset behind an authentication intent, so a
+  password is decrypted only in `AutofillFillActivity`, after presence, and that window is
+  `FLAG_SECURE` too. A site only ever sees logins whose registrable domain matches its own
+  (`core/DomainMatch.kt`), and Sigil offers nothing back to Sigil.
 
 ## Differences from the prototype
 
@@ -68,6 +77,7 @@ with the same UI, sample content and behavior, renamed Sigil.
 | --- | --- |
 | `core/` | Pure Kotlin: password generator, TOTP, secret detection, search, time formatting (unit tested) |
 | `app/data` | Room entities/DAOs, repository, sample data |
+| `app/autofill` | The Android autofill service, its field parsing and the unlock screen |
 | `app/editor` | `NoteDoc`: the note text model behind the editor (unit tested) |
 | `app/ui` | `SigilViewModel`, screens, overlays, theme (prototype colors, icons and fonts) |
 

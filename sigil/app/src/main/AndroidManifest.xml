@@ -25,6 +25,31 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          Autofill: offers Sigil's logins on any sign-in page or app login screen once it is
+          chosen in Settings → Passwords & accounts. Only the system can bind to it.
+        -->
+        <service
+            android:name=".autofill.SigilAutofillService"
+            android:exported="true"
+            android:label="@string/autofill_service_label"
+            android:permission="android.permission.BIND_AUTOFILL_SERVICE">
+            <meta-data
+                android:name="android.autofill"
+                android:resource="@xml/sigil_autofill_service" />
+            <intent-filter>
+                <action android:name="android.service.autofill.AutofillService" />
+            </intent-filter>
+        </service>
+
+        <!-- The fingerprint check between choosing a row and the password being filled in. -->
+        <activity
+            android:name=".autofill.AutofillFillActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Sigil"
+            android:windowSoftInputMode="adjustResize" />
     </application>
 
 </manifest>

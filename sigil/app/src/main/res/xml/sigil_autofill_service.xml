@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Points Android's autofill settings at Sigil's own list screen, so "Sigil" in
+  Settings → Passwords & accounts opens the vault rather than a settings page of its own.
+-->
+<autofill-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="com.sigil.app.MainActivity" />
