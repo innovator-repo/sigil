@@ -51,6 +51,9 @@ data class NoteDoc(val text: String, val lines: List<LineMeta>, val seals: List<
 
     val isBlank: Boolean get() = seals.isEmpty() && text.isBlank()
 
+    /** Anything written below the title line. */
+    val hasBody: Boolean get() = seals.isNotEmpty() || text.substringAfter('\n', "").isNotBlank()
+
     fun toBlocks(): List<NoteBlock> = text.split('\n').mapIndexed { i, line ->
         val segments = ArrayList<Segment>()
         var sealIndex = sealsBefore(lineStart(i))

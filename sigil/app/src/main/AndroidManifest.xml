@@ -4,6 +4,20 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Shared with the other Lume apps; only apps signed with the same key can hold it. -->
+    <permission
+        android:name="app.lume.permission.ECOSYSTEM_SYNC"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="app.lume.permission.ECOSYSTEM_SYNC" />
+
+    <queries>
+        <package android:name="app.kasane" />
+        <package android:name="app.katachi" />
+        <package android:name="app.ren.japanese" />
+        <package android:name="com.vow.app" />
+        <package android:name="com.duolingo" />
+    </queries>
+
     <application
         android:name=".SigilApplication"
         android:allowBackup="false"
@@ -23,6 +37,15 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- sigil://note/quick, sigil://note/diary, sigil://action/scrub-clipboard: each asks for the biometric check first. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="sigil" android:host="note" android:path="/quick" />
+                <data android:scheme="sigil" android:host="note" android:path="/diary" />
+                <data android:scheme="sigil" android:host="action" android:path="/scrub-clipboard" />
             </intent-filter>
         </activity>
 

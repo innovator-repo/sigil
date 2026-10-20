@@ -40,10 +40,20 @@ class SensitiveClipboard(context: Context, private val scope: CoroutineScope) {
         }
     }
 
+    /** Wipes whatever is on the clipboard now, whoever put it there. */
+    fun scrub() {
+        clearJob?.cancel()
+        clear()
+    }
+
     private fun clearIfStillOurs() {
         // While Sigil isn't in front, Android hides the clip description; clear anyway, as promised.
         val label = runCatching { manager.primaryClipDescription?.label }.getOrNull()
         if (label != null && label != SENSITIVE_LABEL) return
+        clear()
+    }
+
+    private fun clear() {
         if (Build.VERSION.SDK_INT >= 28) {
             runCatching { manager.clearPrimaryClip() }
         } else {

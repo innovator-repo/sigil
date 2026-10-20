@@ -4,6 +4,7 @@ import com.sigil.app.data.model.BlockType
 import com.sigil.app.data.model.NoteBlock
 import com.sigil.app.data.model.Segment
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -112,5 +113,12 @@ class NoteDocTest {
         val d = NoteDoc.withTitle("Groceries")
         assertEquals("Groceries\n", d.text)
         assertEquals(2, d.lineCount)
+    }
+
+    @Test fun bodyMeansTextBelowTheTitle() {
+        assertFalse(NoteDoc.withTitle("Evening diary").hasBody)
+        assertFalse(NoteDoc.Empty.hasBody)
+        val withBody = NoteDoc.withTitle("Evening diary").let { it.copy(text = it.text + "Slept badly", lines = it.lines) }
+        assertTrue(withBody.hasBody)
     }
 }
