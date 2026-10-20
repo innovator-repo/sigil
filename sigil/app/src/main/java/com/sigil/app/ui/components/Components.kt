@@ -3,6 +3,7 @@ package com.sigil.app.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import com.sigil.app.designsystem.pressable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -64,7 +65,7 @@ fun SIcon(icon: SigilIcon, tint: Color, size: Dp, modifier: Modifier = Modifier,
 /** Clickable with the platform ripple, clipped to [shape]-like rounding by the caller. */
 @Composable
 fun Modifier.tap(enabled: Boolean = true, role: Role = Role.Button, onClick: () -> Unit): Modifier =
-    clickable(
+    pressable(enabled).clickable(
         interactionSource = remember { MutableInteractionSource() },
         indication = ripple(),
         enabled = enabled,

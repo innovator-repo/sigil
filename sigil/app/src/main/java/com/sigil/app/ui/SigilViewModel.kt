@@ -19,6 +19,7 @@ import com.sigil.app.logic.CheckupResult
 import com.sigil.app.logic.IssueType
 import com.sigil.app.logic.SecurityCheckup
 import com.sigil.app.logic.SecurityIssue
+import com.sigil.app.ipc.Ecosystem
 import com.sigil.app.ui.theme.SigilIcon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -287,7 +288,38 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         saveJob = viewModelScope.launch {
             delay(SAVE_DELAY_MS)
             writes.withLock { repo.saveNote(updated) }
+            logDiaryIfWritten(updated)
         }
+    }
+
+    // ───────── Lume ecosystem ─────────
+
+    private var diaryNoteId: String? = null
+    private var diaryLogged = false
+
+    /** Kasane's "diary" ticks off once the evening note has something under its title. */
+    private fun logDiaryIfWritten(note: NoteItem) {
+        if (note.id != diaryNoteId || diaryLogged || !NoteDoc.fromBlocks(note.blocks).hasBody) return
+        diaryLogged = true
+        Ecosystem.logCheck(sigil, Ecosystem.ITEM_DIARY, true)
+    }
+
+    /** `sigil://note/quick`: a fresh note, ready to type in. */
+    fun quickNote() = newNote()
+
+    /** `sigil://note/diary`: tonight's note, titled with the date. */
+    fun diaryNote(date: java.time.LocalDate) {
+        newNote("Evening diary · $date")
+        diaryNoteId = _state.value.selectedId
+        diaryLogged = false
+    }
+
+    /** `sigil://action/scrub-clipboard`: wipes the clipboard and tells Kasane. */
+    fun scrubClipboard() {
+        sigil.clipboard.scrub()
+        Ecosystem.logCheck(sigil, Ecosystem.ITEM_CLIPBOARD, true)
+        buzz(Haptic.SUCCESS)
+        toast("Clipboard cleared.", SigilIcon.Check)
     }
 
     /** Saves the open note now. Empty notes are thrown away instead, like the prototype's discardIfEmpty(). */
@@ -301,13 +333,17 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
             write { repo.hardDelete(note) }
         } else if (overrides[note.id] == note) {
             write { repo.saveNote(note) }
+            logDiaryIfWritten(note)
         }
     }
 
     fun flush() {
         val note = current(_state.value.selectedId) as? NoteItem ?: return
         saveJob?.cancel()
-        if (overrides[note.id] == note) write { repo.saveNote(note) }
+        if (overrides[note.id] == note) {
+            write { repo.saveNote(note) }
+            logDiaryIfWritten(note)
+        }
     }
 
     suspend fun sealSecret(value: String): String = writes.withLock { repo.sealValue(value) }

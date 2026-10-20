@@ -35,6 +35,8 @@ enum class Haptic {
     THUD,
     /** That didn't work: two low taps, "no". */
     REJECT,
+    /** One slow breath, rise then fall; the only haptic that lasts seconds. */
+    BREATH,
 }
 
 /**
@@ -96,10 +98,11 @@ class Haptics(context: Context) {
             Haptic.SEAL -> listOf(Triple(quickRise, 0.55f, 0), Triple(click, 1f, 30), Triple(tick, 0.4f, 70))
             Haptic.REVEAL -> listOf(Triple(slowRise, 0.6f, 0), Triple(tick, 0.5f, 20))
             Haptic.HIDE -> listOf(Triple(quickFall, 0.5f, 0))
-            Haptic.NUDGE -> listOf(Triple(tick, 0.4f, 0), Triple(tick, 0.7f, 90))
+            Haptic.NUDGE -> listOf(Triple(lowTick, 0.75f, 0), Triple(lowTick, 0.75f, 100))
             Haptic.SUCCESS -> listOf(Triple(click, 0.7f, 0), Triple(click, 1f, 110))
             Haptic.THUD -> listOf(Triple(thud, 1f, 0), Triple(lowTick, 0.4f, 60))
             Haptic.REJECT -> listOf(Triple(lowTick, 0.9f, 0), Triple(lowTick, 0.9f, 100))
+            Haptic.BREATH -> listOf(Triple(slowRise, 0.7f, 0), Triple(tick, 0.4f, 2000), Triple(quickFall, 0.7f, 2000))
         }
         val ids = steps.map { it.first }.distinct().toIntArray()
         if (!v.areAllPrimitivesSupported(*ids)) return null
@@ -114,7 +117,7 @@ class Haptics(context: Context) {
             when (h) {
                 Haptic.TICK, Haptic.UNCHECK, Haptic.HIDE -> VibrationEffect.EFFECT_TICK
                 Haptic.CLICK, Haptic.CHECK, Haptic.REVEAL, Haptic.NUDGE -> VibrationEffect.EFFECT_CLICK
-                Haptic.SEAL, Haptic.THUD -> VibrationEffect.EFFECT_HEAVY_CLICK
+                Haptic.SEAL, Haptic.THUD, Haptic.BREATH -> VibrationEffect.EFFECT_HEAVY_CLICK
                 Haptic.SUCCESS, Haptic.REJECT -> VibrationEffect.EFFECT_DOUBLE_CLICK
             },
         )
@@ -124,7 +127,7 @@ class Haptics(context: Context) {
     private fun legacy(h: Haptic): VibrationEffect = when (h) {
         Haptic.TICK, Haptic.UNCHECK, Haptic.HIDE -> VibrationEffect.createOneShot(8, 90)
         Haptic.CLICK, Haptic.CHECK, Haptic.NUDGE, Haptic.REVEAL -> VibrationEffect.createOneShot(14, 160)
-        Haptic.SEAL, Haptic.THUD -> VibrationEffect.createOneShot(24, 255)
+        Haptic.SEAL, Haptic.THUD, Haptic.BREATH -> VibrationEffect.createOneShot(24, 255)
         Haptic.SUCCESS -> VibrationEffect.createWaveform(longArrayOf(0, 14, 90, 18), intArrayOf(0, 170, 0, 230), -1)
         Haptic.REJECT -> VibrationEffect.createWaveform(longArrayOf(0, 16, 80, 16), intArrayOf(0, 200, 0, 200), -1)
     }

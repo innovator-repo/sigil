@@ -10,11 +10,18 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.TextSelectionColors
+import com.sigil.app.designsystem.CircadianPhase
+import com.sigil.app.designsystem.circadianColors
+import com.sigil.app.designsystem.rememberCircadianPhase
 
 @Composable
 fun SigilTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    val c = if (darkTheme) DarkSigilColors else LightSigilColors
-    val scheme = if (darkTheme) {
+    val phase = rememberCircadianPhase()
+    val base = if (darkTheme) DarkSigilColors else LightSigilColors
+    val c = circadianColors(base, DarkSigilColors, phase)
+    // Evening and sleep surfaces are dark whatever the system theme says.
+    val dark = darkTheme || phase == CircadianPhase.EVENING || phase == CircadianPhase.SLEEP
+    val scheme = if (dark) {
         darkColorScheme(
             primary = c.tint, background = c.bg, surface = c.paper, onBackground = c.label,
             onSurface = c.label, secondary = c.seal, error = c.critical, outline = c.sep,
