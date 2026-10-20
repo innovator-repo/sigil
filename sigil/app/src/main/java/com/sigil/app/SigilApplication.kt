@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
 import com.sigil.app.data.Repository
+import com.sigil.app.ipc.Ecosystem
 import com.sigil.app.data.SigilDatabase
 import com.sigil.app.security.KeystoreVault
 import com.sigil.app.security.SecretVault
@@ -22,7 +23,7 @@ open class SigilApplication : Application() {
 
     /** Overridden only by tests, which run where the Android Keystore doesn't exist. */
     protected open fun createVault(): SecretVault = KeystoreVault()
-    val clipboard: SensitiveClipboard by lazy { SensitiveClipboard(this, appScope) }
+    val clipboard: SensitiveClipboard by lazy { SensitiveClipboard(this, appScope) { Ecosystem.logCheck(this, Ecosystem.ITEM_CLIPBOARD, true) } }
     val prefs: SharedPreferences by lazy { getSharedPreferences("sigil", Context.MODE_PRIVATE) }
 
     /** Completes once first-run seeding and startup housekeeping are done. */

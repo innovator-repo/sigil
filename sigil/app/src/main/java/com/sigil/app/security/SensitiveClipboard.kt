@@ -18,7 +18,7 @@ import kotlinx.coroutines.Dispatchers
  * flagged sensitive so Android 13+ hides them from the clipboard preview, and the clip is
  * cleared after a minute unless something else has been copied since.
  */
-class SensitiveClipboard(context: Context, private val scope: CoroutineScope) {
+class SensitiveClipboard(context: Context, private val scope: CoroutineScope, private val onCleared: () -> Unit = {}) {
     private val manager = context.getSystemService(ClipboardManager::class.java)
     private var clearJob: Job? = null
 
@@ -51,6 +51,7 @@ class SensitiveClipboard(context: Context, private val scope: CoroutineScope) {
         val label = runCatching { manager.primaryClipDescription?.label }.getOrNull()
         if (label != null && label != SENSITIVE_LABEL) return
         clear()
+        onCleared()
     }
 
     private fun clear() {

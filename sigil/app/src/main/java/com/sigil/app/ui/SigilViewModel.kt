@@ -14,6 +14,7 @@ import com.sigil.app.data.model.NoteItem
 import com.sigil.app.data.model.Space
 import com.sigil.app.data.model.WifiItem
 import com.sigil.app.data.model.isPassword
+import com.sigil.app.editor.LineMeta
 import com.sigil.app.editor.NoteDoc
 import com.sigil.app.logic.CheckupResult
 import com.sigil.app.logic.IssueType
@@ -296,10 +297,13 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
 
     private var diaryNoteId: String? = null
     private var diaryLogged = false
+    private var diarySeed: String? = null
 
     /** Kasane's "diary" ticks off once the evening note has something under its title. */
     private fun logDiaryIfWritten(note: NoteItem) {
-        if (note.id != diaryNoteId || diaryLogged || !NoteDoc.fromBlocks(note.blocks).hasBody) return
+        if (note.id != diaryNoteId || diaryLogged) return
+        val doc = NoteDoc.fromBlocks(note.blocks)
+        if (!doc.hasBody || doc.text == diarySeed) return
         diaryLogged = true
         Ecosystem.logCheck(sigil, Ecosystem.ITEM_DIARY, true)
     }
@@ -310,8 +314,21 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
     /** `sigil://note/diary`: tonight's note, titled with the date. */
     fun diaryNote(date: java.time.LocalDate) {
         newNote("Evening diary · $date")
-        diaryNoteId = _state.value.selectedId
+        val id = _state.value.selectedId ?: return
+        diaryNoteId = id
         diaryLogged = false
+        diarySeed = null
+        // Fill in today's recap from Kasane and Vow, unless the person has already started typing.
+        viewModelScope.launch {
+            val recap = withContext(Dispatchers.IO) { Ecosystem.diarySummary(sigil) } ?: return@launch
+            val note = current(id) as? NoteItem ?: return@launch
+            val doc = NoteDoc.fromBlocks(note.blocks)
+            if (doc.hasBody) return@launch
+            val text = doc.text.trimEnd('\n') + "\n" + recap + "\n"
+            val seeded = NoteDoc(text, List(text.count { it == '\n' } + 1) { LineMeta() }, emptyList())
+            diarySeed = text
+            onNoteEdited(id, seeded)
+        }
     }
 
     /** `sigil://action/scrub-clipboard`: wipes the clipboard and tells Kasane. */

@@ -33,6 +33,11 @@ enum class CircadianPhase {
     SLEEP;
 
     companion object {
+        /** Tests set this to pin the surfaces, so screenshots don't change with the clock. */
+        @Volatile var override: CircadianPhase? = null
+
+        fun now(): CircadianPhase = override ?: at(LocalTime.now())
+
         fun at(time: LocalTime): CircadianPhase = when (time.hour) {
             in 6..11 -> MORNING
             in 12..19 -> DAY
@@ -69,10 +74,10 @@ fun circadianColors(base: SigilColors, dark: SigilColors, phase: CircadianPhase)
 /** The current phase, re-read whenever the screen resumes and at each phase boundary. */
 @Composable
 fun rememberCircadianPhase(): CircadianPhase {
-    var phase by remember { mutableStateOf(CircadianPhase.at(LocalTime.now())) }
+    var phase by remember { mutableStateOf(CircadianPhase.now()) }
     LaunchedEffect(Unit) {
         while (true) {
-            phase = CircadianPhase.at(LocalTime.now())
+            phase = CircadianPhase.now()
             delay(60_000)
         }
     }

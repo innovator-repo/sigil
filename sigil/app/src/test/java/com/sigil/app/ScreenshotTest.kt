@@ -40,6 +40,14 @@ class ScreenshotTest {
 
     private val vm: SigilViewModel get() = ViewModelProvider(rule.activity)[SigilViewModel::class.java]
 
+    @org.junit.Before fun pinClock() {
+        com.sigil.app.designsystem.CircadianPhase.override = com.sigil.app.designsystem.CircadianPhase.DAY
+    }
+
+    @org.junit.After fun releaseClock() {
+        com.sigil.app.designsystem.CircadianPhase.override = null
+    }
+
     private fun ready() {
         rule.waitUntil(10_000) { vm.state.value.ready && vm.state.value.items.size >= 17 && vm.state.value.checkup.total > 0 }
         rule.waitForIdle()
