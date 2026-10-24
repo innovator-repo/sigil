@@ -147,7 +147,7 @@ private fun CompactPanes(state: UiState, vm: SigilViewModel) {
         transitionSpec = {
             val forward = targetState.ordinal > initialState.ordinal
             val dir = if (forward) 1 else -1
-            (slideInHorizontally(tween(320)) { w -> dir * w } togetherWith slideOutHorizontally(tween(320)) { w -> -dir * w / 3 })
+            (slideInHorizontally(com.sigil.app.designsystem.LumeMotion.spatial()) { w -> dir * w } togetherWith slideOutHorizontally(com.sigil.app.designsystem.LumeMotion.spatial()) { w -> -dir * w / 3 })
         },
         label = "pane",
     ) { pane ->

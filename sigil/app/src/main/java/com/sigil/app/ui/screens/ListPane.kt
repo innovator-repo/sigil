@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import com.sigil.app.designsystem.pressable
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.DropdownMenu
@@ -271,6 +272,7 @@ private fun ItemRow(
             .drawBehind {
                 if (divider && !selected) drawLine(sep, Offset(48.dp.toPx(), 0f), Offset(size.width - 8.dp.toPx(), 0f), 0.5.dp.toPx())
             }
+            .pressable()
             .clip(RoundedCornerShape(10.dp))
             .background(if (selected) c.sel else Color.Transparent)
             .background(if (picked == true) c.tintSoft else Color.Transparent)
