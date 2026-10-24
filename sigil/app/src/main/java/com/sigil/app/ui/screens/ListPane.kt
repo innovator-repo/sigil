@@ -147,6 +147,7 @@ fun ListPane(state: UiState, vm: SigilViewModel, mode: WindowMode, modifier: Mod
             contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 12.dp + nav.calculateBottomPadding()),
         ) {
             items(entries, key = { it.key }, contentType = { it::class }) { e ->
+ androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.animateItem()) {
                 when (e) {
                     is Entry.Group -> GroupLabel(e.label)
                     is Entry.Row -> {
@@ -164,6 +165,7 @@ fun ListPane(state: UiState, vm: SigilViewModel, mode: WindowMode, modifier: Mod
                     }
                 }
             }
+}
         }
         if (selection != null) SelectionBar(state, vm)
     }
