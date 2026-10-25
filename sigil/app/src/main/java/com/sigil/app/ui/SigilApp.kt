@@ -4,7 +4,11 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -147,14 +151,18 @@ private fun CompactPanes(state: UiState, vm: SigilViewModel) {
         transitionSpec = {
             val forward = targetState.ordinal > initialState.ordinal
             val dir = if (forward) 1 else -1
-            (slideInHorizontally(com.sigil.app.designsystem.LumeMotion.spatial()) { w -> dir * w } togetherWith slideOutHorizontally(com.sigil.app.designsystem.LumeMotion.spatial()) { w -> -dir * w / 3 })
+            // Tween, not the overshooting spring: a long spring tail left both panes half-slid for ~1s on back.
+            val spec = tween<IntOffset>(280, easing = FastOutSlowInEasing)
+            (slideInHorizontally(spec) { w -> dir * w } togetherWith slideOutHorizontally(spec) { w -> -dir * w / 3 })
+                .apply { targetContentZIndex = if (forward) 1f else 0f }
+                .using(SizeTransform(clip = true) { _, _ -> snap() })
         },
         label = "pane",
     ) { pane ->
         when (pane) {
             Pane.SIDEBAR -> SidebarPane(state, vm, WindowMode.COMPACT, Modifier.fillMaxSize().background(Sigil.colors.paper))
-            Pane.LIST -> ListPane(state, vm, WindowMode.COMPACT, Modifier.fillMaxSize())
-            Pane.DETAIL -> Detail(state, vm, WindowMode.COMPACT, Modifier.fillMaxSize())
+            Pane.LIST -> ListPane(state, vm, WindowMode.COMPACT, Modifier.fillMaxSize().background(Sigil.colors.paper))
+            Pane.DETAIL -> Detail(state, vm, WindowMode.COMPACT, Modifier.fillMaxSize().background(Sigil.colors.paper))
         }
     }
 }
