@@ -9,10 +9,13 @@ import com.sigil.app.data.SigilDatabase
 import com.sigil.app.security.KeystoreVault
 import com.sigil.app.security.SecretVault
 import com.sigil.app.security.SensitiveClipboard
+import com.sigil.app.widget.SigilWidgets
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 open class SigilApplication : Application() {
@@ -39,6 +42,15 @@ open class SigilApplication : Application() {
             }
             repository.purgeExpired()
             repository.collectGarbage()
+        }
+        // Keep the Quick note widget's title current as notes change (a no-op when none is placed).
+        // Separate from [startup], which must finish.
+        appScope.launch(Dispatchers.IO) {
+            startup.join()
+            repository.observeItems().collectLatest {
+                delay(800)
+                runCatching { SigilWidgets.refreshQuickNote(this@SigilApplication) }
+            }
         }
     }
 

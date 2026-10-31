@@ -39,6 +39,14 @@ class Repository(
         }
     }
 
+    /** Every stored item once, without watching for changes: for the status provider and widgets. */
+    suspend fun allItems(): List<Item> = buildList {
+        db.noteDao().all().forEach { add(it.toDomain()) }
+        db.loginDao().all().forEach { add(it.toDomain()) }
+        db.cardDao().all().forEach { add(it.toDomain()) }
+        db.wifiDao().all().forEach { add(it.toDomain()) }
+    }
+
     // ───────── Secrets ─────────
 
     suspend fun sealValue(plaintext: String): String {

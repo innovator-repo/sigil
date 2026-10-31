@@ -37,13 +37,13 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-/** Which pane is in front on a phone, where only one fits (the prototype's `state.view`). */
-enum class Pane { SIDEBAR, LIST, DETAIL }
+/** Which screen is in front. [HOME] is the Now-first main screen; the rest are one tap away from it. */
+enum class Pane { HOME, LIST, DETAIL, CLIPBOARD, SETTINGS }
 
 enum class Section(val label: String, val icon: SigilIcon, val space: Space? = null) {
     ALL("Everything", SigilIcon.All),
     NOTES("Notes", SigilIcon.Note),
-    PASSWORDS("Passwords", SigilIcon.Key),
+    PASSWORDS("Vault", SigilIcon.Key),
     PINNED("Pinned", SigilIcon.Pin),
     PERSONAL("Personal", SigilIcon.Person, Space.PERSONAL),
     FAMILY("Family", SigilIcon.People, Space.FAMILY),
@@ -102,9 +102,10 @@ data class UiState(
     val items: List<Item> = emptyList(),
     val section: Section = Section.ALL,
     val selectedId: String? = null,
-    /** Sigil opens on Everything (or resumes where you were, see [SigilViewModel.restorePlace]). */
-    val pane: Pane = Pane.LIST,
-    val sidebarOpen: Boolean = false,
+    /** Sigil opens on the Now-first home screen (or resumes where you were, see [SigilViewModel.restorePlace]). */
+    val pane: Pane = Pane.HOME,
+    /** Where the back arrow of [Pane.DETAIL] leads: the home screen, or the list it was opened from. */
+    val origin: Pane = Pane.HOME,
     val checkup: CheckupResult = CheckupResult(emptyList(), 0, 0),
     val fixed: List<FixedEntry> = emptyList(),
     /** Revealed fields, keyed "itemId:field". */
@@ -217,10 +218,10 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { s -> s.copy(selection = null) }
         _state.update { s ->
             if (section == Section.CHECKUP) {
-                s.copy(section = section, pane = Pane.DETAIL, sidebarOpen = false)
+                s.copy(section = section, pane = Pane.DETAIL, origin = Pane.HOME)
             } else {
                 val keep = s.selected?.takeIf(section::matches)?.id
-                s.copy(section = section, pane = Pane.LIST, sidebarOpen = false, selectedId = keep ?: s.listItems(section).firstOrNull()?.id)
+                s.copy(section = section, pane = Pane.LIST, selectedId = keep ?: s.listItems(section).firstOrNull()?.id)
             }
         }
     }
@@ -229,7 +230,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         buzz(Haptic.TICK)
         if (id != _state.value.selectedId) leaveNote()
         hideAll()
-        _state.update { it.copy(selectedId = id, pane = Pane.DETAIL, overlay = null) }
+        _state.update { it.copy(selectedId = id, pane = Pane.DETAIL, origin = originNow(it), overlay = null) }
     }
 
     /** Opens an item from search, switching to Everything if the current section doesn't show it. */
@@ -242,17 +243,38 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         select(id)
     }
 
-    fun showSidebar() = _state.update { it.copy(pane = Pane.SIDEBAR) }
+    /** Opening something from the home screen returns there; from a list, back to that list. */
+    private fun originNow(s: UiState): Pane = if (s.pane == Pane.LIST || s.pane == Pane.DETAIL) Pane.LIST else Pane.HOME
+
+    /** The Now-first main screen. Always on Everything, so a note opened from its drawer is never filtered out. */
+    fun showHome() {
+        leaveNote()
+        hideAll()
+        _state.update { it.copy(pane = Pane.HOME, origin = Pane.HOME, section = Section.ALL, selection = null) }
+    }
+
+    fun showClipboard() {
+        buzz(Haptic.TICK)
+        _state.update { it.copy(pane = Pane.CLIPBOARD) }
+    }
+
+    fun showSettings() {
+        buzz(Haptic.TICK)
+        _state.update { it.copy(pane = Pane.SETTINGS) }
+    }
+
+    /** The back arrow on an item: to the list it was opened from, or the home screen. */
+    fun closeDetail() {
+        if (_state.value.origin == Pane.LIST) showList() else showHome()
+    }
+
+    /** Whether Sigil has a scheduled auto-clear waiting on the clipboard. */
+    fun clipArmed(): Boolean = sigil.clipboard.armed
 
     fun showList() {
         leaveNote()
         hideAll()
         _state.update { it.copy(pane = Pane.LIST) }
-    }
-
-    fun setSidebarOpen(open: Boolean) {
-        if (open) buzz(Haptic.TICK)
-        _state.update { it.copy(sidebarOpen = open) }
     }
 
     // ───────── Notes ─────────
@@ -270,7 +292,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         )
         override(note)
         val section = if (s.section == Section.ALL || s.section == Section.NOTES || s.section.space != null) s.section else Section.NOTES
-        _state.update { it.copy(section = section, selectedId = note.id, pane = Pane.DETAIL, overlay = null, focusNoteId = note.id) }
+        _state.update { it.copy(section = section, selectedId = note.id, pane = Pane.DETAIL, origin = originNow(it), overlay = null, focusNoteId = note.id) }
         if (seed.isNotBlank()) {
             write { repo.saveNote(note) }
             toast("Kept. It saves as you type.", SigilIcon.Check)
@@ -646,7 +668,7 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         presenceUntil = 0
         buzz(Haptic.THUD)
         prefs.edit().putBoolean(SigilApplication.KEY_LOCKED, true).apply()
-        _state.update { it.copy(locked = true, overlay = null, sidebarOpen = false, selection = null) }
+        _state.update { it.copy(locked = true, overlay = null, selection = null) }
     }
 
     fun unlocked() {
@@ -684,10 +706,12 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         val section = runCatching { Section.valueOf(prefs.getString(KEY_PLACE_SECTION, null)!!) }.getOrNull() ?: return
         val pane = runCatching { Pane.valueOf(prefs.getString(KEY_PLACE_PANE, null)!!) }.getOrNull() ?: return
         val item = current(prefs.getString(KEY_PLACE_ITEM, null))
+        // A restored item goes back to the list its section implies; Everything (and Check-up) came from home.
+        val origin = if (section == Section.ALL || section == Section.CHECKUP) Pane.HOME else Pane.LIST
         _state.update { s ->
             when {
-                section == Section.CHECKUP -> s.copy(section = section, pane = pane)
-                item != null && section.matches(item) -> s.copy(section = section, selectedId = item.id, pane = pane)
+                section == Section.CHECKUP -> s.copy(section = section, pane = pane, origin = Pane.HOME)
+                item != null && section.matches(item) -> s.copy(section = section, selectedId = item.id, pane = pane, origin = origin)
                 else -> s.copy(section = section, pane = if (pane == Pane.DETAIL) Pane.LIST else pane, selectedId = s.listItems(section).firstOrNull()?.id)
             }
         }
@@ -695,8 +719,8 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
 
     // ───────── Overlays ─────────
 
-    fun openFind(initial: String = "") = buzz(Haptic.TICK).also { _state.update { it.copy(overlay = Overlay.Find(initial), sidebarOpen = false) } }
-    fun openGenerator(changeItemId: String? = null) = _state.update { it.copy(overlay = Overlay.Generator(changeItemId), sidebarOpen = false) }
+    fun openFind(initial: String = "") = buzz(Haptic.TICK).also { _state.update { it.copy(overlay = Overlay.Find(initial)) } }
+    fun openGenerator(changeItemId: String? = null) = _state.update { it.copy(overlay = Overlay.Generator(changeItemId)) }
     fun closeOverlay() = _state.update { it.copy(overlay = null) }
 
     fun createLogin(site: String, user: String, password: String) {
@@ -731,9 +755,9 @@ class SigilViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun openNewItem() = buzz(Haptic.TICK).also { _state.update { it.copy(overlay = Overlay.NewItem, sidebarOpen = false) } }
+    fun openNewItem() = buzz(Haptic.TICK).also { _state.update { it.copy(overlay = Overlay.NewItem) } }
 
-    fun openEditor(editor: Overlay.Editor) = _state.update { it.copy(overlay = editor, sidebarOpen = false) }
+    fun openEditor(editor: Overlay.Editor) = _state.update { it.copy(overlay = editor) }
 
     /** The editor's starting point: an existing item with its sealed values opened, or a template. */
     suspend fun loadDraft(editor: Overlay.Editor): ItemDraft {

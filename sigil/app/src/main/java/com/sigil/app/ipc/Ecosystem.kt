@@ -16,32 +16,15 @@ object Ecosystem {
     const val ITEM_DIARY = "diary"
     const val ITEM_CLIPBOARD = "clipboard"
 
-    private val KASANE_STATUS = android.net.Uri.parse("content://app.kasane.provider/status")
-    private val VOW_STATUS = android.net.Uri.parse("content://com.vow.app.provider/status")
-
     /**
      * A plain-words recap of today from Kasane and Vow's read-only status providers, or null when
      * neither is installed or reachable. Numbers only; nothing is sent out.
      */
-    fun diarySummary(context: Context): String? {
-        val lines = ArrayList<String>()
-        queryRow(context, KASANE_STATUS)?.let { r ->
-            val kept = r["rulesKept"]; val total = r["rulesTotal"]
-            if (kept != null && total != null) lines += "Rules kept: $kept of $total"
-            r["momentum"]?.let { lines += "Momentum: $it" }
-        }
-        queryRow(context, VOW_STATUS)?.let { r ->
-            r["reclaimedMinutes"]?.let { lines += "Time reclaimed: $it min" }
-        }
-        return lines.takeIf { it.isNotEmpty() }?.joinToString("\n")
-    }
+    fun diarySummary(context: Context): String? =
+        DiaryRecap.lines(Companion.row(context, KASANE_PACKAGE), Companion.row(context, VOW_PACKAGE))
+            .takeIf { it.isNotEmpty() }?.joinToString("\n")
 
-    private fun queryRow(context: Context, uri: android.net.Uri): Map<String, String>? = runCatching {
-        context.contentResolver.query(uri, null, null, null, null)?.use { c ->
-            if (!c.moveToFirst()) return@use null
-            (0 until c.columnCount).associate { c.getColumnName(it) to c.getString(it) }
-        }
-    }.getOrNull()
+    private const val VOW_PACKAGE = "com.vow.app"
 
     fun logCheck(context: Context, item: String, done: Boolean) {
         runCatching {
@@ -54,6 +37,25 @@ object Ecosystem {
             )
         }
     }
+}
+
+/**
+ * A cross-app feature is composed only if the companion is installed AND its status provider
+ * answers. Any exception or null result means "absent", so callers show nothing at all.
+ */
+object Companion {
+    fun statusUri(packageName: String): android.net.Uri = android.net.Uri.parse("content://$packageName.provider/status")
+
+    /** The companion's status row as column -> text, or null when it is absent. */
+    fun row(context: Context, packageName: String): Map<String, String>? = runCatching {
+        context.packageManager.getPackageInfo(packageName, 0)
+        context.contentResolver.query(statusUri(packageName), null, null, null, null)?.use { c ->
+            if (!c.moveToFirst()) return@use null
+            (0 until c.columnCount).associate { c.getColumnName(it) to c.getString(it) }
+        }
+    }.getOrNull()
+
+    fun available(context: Context, packageName: String): Boolean = row(context, packageName) != null
 }
 
 /** What a `sigil://` link asks for. */

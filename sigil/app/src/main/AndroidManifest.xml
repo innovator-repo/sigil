@@ -32,6 +32,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.Sigil"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -73,6 +74,45 @@
             android:excludeFromRecents="true"
             android:theme="@style/Theme.Sigil"
             android:windowSoftInputMode="adjustResize" />
+
+        <!-- Read-only ecosystem status (one row), guarded by the shared signature permission. -->
+        <provider
+            android:name=".ipc.SigilStatusProvider"
+            android:authorities="com.sigil.app.provider"
+            android:exported="true"
+            android:readPermission="app.lume.permission.ECOSYSTEM_SYNC"
+            android:writePermission="app.lume.permission.ECOSYSTEM_SYNC" />
+
+        <!-- Home-screen widgets. -->
+        <receiver
+            android:name=".widget.QuickNoteWidget"
+            android:exported="false"
+            android:label="@string/widget_quick_note_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/quick_note_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.ScrubWidget"
+            android:exported="false"
+            android:label="@string/widget_scrub_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/scrub_widget_info" />
+        </receiver>
+        <activity
+            android:name=".widget.ScrubActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Sigil.Transparent" />
     </application>
 
 </manifest>

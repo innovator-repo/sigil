@@ -13,8 +13,8 @@ import java.time.LocalTime
 
 /** Sigil's accents, as named in the Lume palette table. Light / dark pairs. */
 object LumePalette {
-    val TrustSapphireLight = Color(0xFF0071E3)
-    val TrustSapphireDark = Color(0xFF2997FF)
+    val TrustSapphireLight = Color(0xFF2A68B7)
+    val TrustSapphireDark = Color(0xFF76B2F5)
     val SealIndigoLight = Color(0xFF5856D6)
     val SealIndigoDark = Color(0xFF8E8BFF)
     val ArchiveAmberLight = Color(0xFFC98A00)

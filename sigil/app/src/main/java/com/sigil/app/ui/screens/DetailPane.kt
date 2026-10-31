@@ -72,7 +72,7 @@ fun DetailPane(state: UiState, vm: SigilViewModel, mode: WindowMode, modifier: M
     val c = Sigil.colors
     val item = state.selected?.takeIf(state.section::matches)
     val back: @Composable () -> Unit = {
-        if (mode == WindowMode.COMPACT) BackButton(state.section.label) { vm.showList() }
+        if (mode == WindowMode.COMPACT) BackButton(if (state.origin == com.sigil.app.ui.Pane.LIST) state.section.label else "Sigil") { vm.closeDetail() }
     }
     Box(modifier.background(c.paper).statusBarsPadding()) {
         if (item == null) {

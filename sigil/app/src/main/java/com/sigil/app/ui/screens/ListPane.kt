@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -109,14 +110,7 @@ fun ListPane(state: UiState, vm: SigilViewModel, mode: WindowMode, modifier: Mod
             Modifier.fillMaxWidth().padding(start = 8.dp, end = 6.dp, top = if (mode == WindowMode.COMPACT) 14.dp else 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            when (mode) {
-                WindowMode.COMPACT -> BackButton("Library") { vm.showSidebar() }
-                WindowMode.MEDIUM -> ToolButton(SigilIcon.Sidebar, "Show sidebar", { vm.setSidebarOpen(true) })
-                WindowMode.EXPANDED -> Text(
-                    section.label, style = SigilType.listTitleWide, color = c.label,
-                    modifier = Modifier.padding(start = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-            }
+            BackButton("Sigil") { vm.showHome() }
             Spacer(Modifier.weight(1f))
             if (entries.isNotEmpty()) ToolButton(SigilIcon.Checklist, "Select", { vm.beginSelection() })
             ToolButton(SigilIcon.Search, "Find or keep", { vm.openFind() })
@@ -125,11 +119,16 @@ fun ListPane(state: UiState, vm: SigilViewModel, mode: WindowMode, modifier: Mod
                 ToolButton(SigilIcon.Compose, "New note", { vm.newNote() })
             }
         }
-        if (mode != WindowMode.EXPANDED || selection != null) {
-            Text(
-                if (selection != null) selectedTitle(selection.size) else section.label, style = SigilType.largeTitle, color = c.label, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 2.dp),
-            )
+        Text(
+            if (selection != null) selectedTitle(selection.size) else if (section == Section.DELETED) "Recently Deleted" else section.label,
+            style = SigilType.largeTitle, color = c.label, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 2.dp),
+        )
+        if (selection == null) {
+            // The Spaces and views that used to live in the sidebar: one scrolling row of chips, not a tab bar.
+            LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(SCOPES) { s -> Chip(s.label, null, selected = s == section) { vm.go(s) } }
+            }
         }
 
         if (entries.isEmpty()) {
@@ -171,6 +170,8 @@ fun ListPane(state: UiState, vm: SigilViewModel, mode: WindowMode, modifier: Mod
         if (selection != null) SelectionBar(state, vm)
     }
 }
+
+private val SCOPES = listOf(Section.PASSWORDS, Section.NOTES, Section.PINNED, Section.PERSONAL, Section.FAMILY, Section.WORK)
 
 private fun selectedTitle(n: Int) = when (n) {
     0 -> "Select Items"

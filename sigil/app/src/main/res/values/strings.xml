@@ -9,4 +9,11 @@
     <string name="autofill_unlock_for">Unlock to fill %1$s</string>
     <string name="autofill_nothing_to_save">No password to save</string>
     <string name="autofill_could_not_save">Sigil could not save this login</string>
+    <string name="widget_quick_note_label">Sigil quick note</string>
+    <string name="widget_scrub_label">Sigil scrub clipboard</string>
+    <string name="widget_new_note">New note</string>
+    <string name="widget_no_notes">No notes yet</string>
+    <string name="widget_scrub">Scrub clipboard</string>
+    <string name="widget_scrubbed">Scrubbed</string>
+    <string name="widget_heading">Last note</string>
 </resources>

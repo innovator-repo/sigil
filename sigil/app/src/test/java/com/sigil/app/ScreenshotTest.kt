@@ -69,7 +69,7 @@ class ScreenshotTest {
     @Test fun phoneScreens() {
         ready()
         shot("01_everything")
-        act { showSidebar() }
+        act { showHome() }
         shot("02_library")
         act { go(Section.PASSWORDS) }
         shot("03_passwords")

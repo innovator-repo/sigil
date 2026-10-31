@@ -67,6 +67,7 @@ enum class SigilIcon(vararg val parts: String) {
     Pen("M14.5 4.5l5 5-8.5 8.5H6v-5z", "M3.5 20.5h17"),
     Badge(rect(4f, 4f, 16f, 16f, 4f), "M8.5 12.2l2.4 2.4 4.6-5"),
     Plus2("M12 6v12M6 12h12"),
+    Gear(circle(12f, 12f, 3f), "M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4L18 18M18 6l-1.6 1.6M7.6 16.4L6 18"),
 
     /** The app mark: a page with a padlock on it - notes and secrets in one place. */
     AppMark("M7 4.5h7.5l3.5 3.5v11.5H7z", rect(9.5f, 12f, 6f, 4.5f, 1f), "M10.8 12v-1.2a1.7 1.7 0 0 1 3.4 0V12"),

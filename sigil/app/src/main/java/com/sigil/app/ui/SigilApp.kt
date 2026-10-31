@@ -45,11 +45,13 @@ import com.sigil.app.ui.overlays.TotpSetupSheet
 import com.sigil.app.ui.screens.CheckupPane
 import com.sigil.app.ui.screens.DetailPane
 import com.sigil.app.ui.screens.ListPane
-import com.sigil.app.ui.screens.SidebarPane
+import com.sigil.app.ui.screens.ClipboardPane
+import com.sigil.app.ui.screens.NowScreen
+import com.sigil.app.ui.screens.SettingsPane
 import com.sigil.app.ui.theme.Sigil
 
-/** The prototype's container breakpoints: one pane on a phone, list + detail, then all three. */
-enum class WindowMode { COMPACT, MEDIUM, EXPANDED }
+/** Kept for the panes that still take a mode: Sigil is one screen at a time at every width. */
+enum class WindowMode { COMPACT }
 
 @Composable
 fun SigilApp(state: UiState, vm: SigilViewModel) {
@@ -68,59 +70,18 @@ fun SigilApp(state: UiState, vm: SigilViewModel) {
                 }
             },
     ) {
-        val mode = when {
-            maxWidth < 700.dp -> WindowMode.COMPACT
-            maxWidth < 980.dp -> WindowMode.MEDIUM
-            else -> WindowMode.EXPANDED
-        }
-
-        BackHandler(enabled = !state.locked && (state.overlay != null || state.sidebarOpen || state.selecting || (mode == WindowMode.COMPACT && state.pane != Pane.SIDEBAR))) {
+        BackHandler(enabled = !state.locked && (state.overlay != null || state.selecting || state.pane != Pane.HOME)) {
             when {
                 state.overlay != null -> vm.closeOverlay()
                 state.selecting -> vm.endSelection()
-                state.sidebarOpen -> vm.setSidebarOpen(false)
-                state.pane == Pane.DETAIL && state.section == Section.CHECKUP -> vm.showSidebar()
-                state.pane == Pane.DETAIL -> vm.showList()
-                else -> vm.showSidebar()
+                state.pane == Pane.DETAIL && state.section != Section.CHECKUP -> vm.closeDetail()
+                else -> vm.showHome()
             }
         }
 
         val blur = if (state.locked && Build.VERSION.SDK_INT >= 31) Modifier.blur(34.dp) else Modifier
         Box(Modifier.fillMaxSize().then(blur)) {
-            if (state.ready) {
-                when (mode) {
-                    WindowMode.COMPACT -> CompactPanes(state, vm)
-                    WindowMode.MEDIUM -> Row(Modifier.fillMaxSize()) {
-                        if (state.section != Section.CHECKUP) {
-                            ListPane(state, vm, mode, Modifier.width(320.dp).fillMaxHeight())
-                            VerticalHairline()
-                        }
-                        Detail(state, vm, mode, Modifier.weight(1f).fillMaxHeight())
-                    }
-                    WindowMode.EXPANDED -> Row(Modifier.fillMaxSize()) {
-                        SidebarPane(state, vm, mode, Modifier.width(232.dp).fillMaxHeight().background(c.bg))
-                        VerticalHairline()
-                        if (state.section != Section.CHECKUP) {
-                            ListPane(state, vm, mode, Modifier.width(320.dp).fillMaxHeight())
-                            VerticalHairline()
-                        }
-                        Detail(state, vm, mode, Modifier.weight(1f).fillMaxHeight())
-                    }
-                }
-            }
-
-            if (mode == WindowMode.MEDIUM) {
-                AnimatedVisibility(state.sidebarOpen, enter = fadeIn(), exit = fadeOut()) {
-                    Box(Modifier.fillMaxSize().background(c.scrim).tapQuiet { vm.setSidebarOpen(false) })
-                }
-                AnimatedVisibility(
-                    state.sidebarOpen,
-                    enter = slideInHorizontally { -it },
-                    exit = slideOutHorizontally { -it },
-                ) {
-                    SidebarPane(state, vm, mode, Modifier.width(260.dp).fillMaxHeight().shadow(24.dp).background(c.paper))
-                }
-            }
+            if (state.ready) Screens(state, vm)
         }
 
         when (val o = state.overlay) {
@@ -140,12 +101,7 @@ fun SigilApp(state: UiState, vm: SigilViewModel) {
 }
 
 @Composable
-private fun Detail(state: UiState, vm: SigilViewModel, mode: WindowMode, modifier: Modifier) {
-    if (state.section == Section.CHECKUP) CheckupPane(state, vm, mode, modifier) else DetailPane(state, vm, mode, modifier)
-}
-
-@Composable
-private fun CompactPanes(state: UiState, vm: SigilViewModel) {
+private fun Screens(state: UiState, vm: SigilViewModel) {
     AnimatedContent(
         targetState = state.pane,
         transitionSpec = {
@@ -159,15 +115,15 @@ private fun CompactPanes(state: UiState, vm: SigilViewModel) {
         },
         label = "pane",
     ) { pane ->
+        val full = Modifier.fillMaxSize().background(Sigil.colors.paper)
         when (pane) {
-            Pane.SIDEBAR -> SidebarPane(state, vm, WindowMode.COMPACT, Modifier.fillMaxSize().background(Sigil.colors.paper))
-            Pane.LIST -> ListPane(state, vm, WindowMode.COMPACT, Modifier.fillMaxSize().background(Sigil.colors.paper))
-            Pane.DETAIL -> Detail(state, vm, WindowMode.COMPACT, Modifier.fillMaxSize().background(Sigil.colors.paper))
+            Pane.HOME -> NowScreen(state, vm)
+            Pane.LIST -> ListPane(state, vm, WindowMode.COMPACT, full)
+            Pane.DETAIL ->
+                if (state.section == Section.CHECKUP) CheckupPane(state, vm, WindowMode.COMPACT, full)
+                else DetailPane(state, vm, WindowMode.COMPACT, full)
+            Pane.CLIPBOARD -> ClipboardPane(state, vm, full)
+            Pane.SETTINGS -> SettingsPane(state, vm, full)
         }
     }
-}
-
-@Composable
-private fun VerticalHairline() {
-    Box(Modifier.width(0.5.dp).fillMaxHeight().background(Sigil.colors.sep))
 }

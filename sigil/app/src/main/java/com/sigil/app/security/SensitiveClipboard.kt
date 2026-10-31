@@ -22,6 +22,9 @@ class SensitiveClipboard(context: Context, private val scope: CoroutineScope, pr
     private val manager = context.getSystemService(ClipboardManager::class.java)
     private var clearJob: Job? = null
 
+    /** True while an auto-clear of a copied secret is still waiting. */
+    val armed: Boolean get() = clearJob?.isActive == true
+
     fun copy(text: String, sensitive: Boolean) {
         val clip = ClipData.newPlainText(if (sensitive) SENSITIVE_LABEL else "Sigil", text)
         if (sensitive) {

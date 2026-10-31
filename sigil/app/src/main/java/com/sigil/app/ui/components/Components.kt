@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
@@ -163,7 +164,7 @@ fun SButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, pr
             .padding(horizontal = 14.dp, vertical = 9.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = SigilType.button, color = if (primary) c.onColor else c.label, maxLines = 1)
+        Text(text, style = SigilType.button, color = if (primary && !destructive) c.tint.onAccent() else if (primary) c.onColor else c.label, maxLines = 1)
     }
 }
 
@@ -269,3 +270,6 @@ fun AppIcon(size: Dp) {
 fun Hairline(modifier: Modifier = Modifier) {
     Spacer(modifier.fillMaxWidth().height(0.5.dp).background(Sigil.colors.sep))
 }
+
+/** Text on an accent fill: white on the deep sapphire, near-black on the light dark-mode sapphire. */
+fun Color.onAccent(): Color = if (luminance() > 0.5f) Color(0xFF0B0F14) else Color.White

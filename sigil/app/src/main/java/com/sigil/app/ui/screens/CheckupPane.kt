@@ -68,7 +68,7 @@ fun CheckupPane(state: UiState, vm: SigilViewModel, mode: WindowMode, modifier: 
 
     Column(modifier.background(c.paper).statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 8.dp, top = 14.dp, bottom = 4.dp).height(44.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (mode == WindowMode.COMPACT) BackButton("Library") { vm.showSidebar() }
+            if (mode == WindowMode.COMPACT) BackButton("Sigil") { vm.showHome() }
         }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             Page(mode) {
